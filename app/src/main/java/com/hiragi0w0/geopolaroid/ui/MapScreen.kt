@@ -50,6 +50,7 @@ import com.hiragi0w0.geopolaroid.domain.DisplayFormat
 import com.hiragi0w0.geopolaroid.domain.GeoPoint
 import com.hiragi0w0.geopolaroid.domain.Photo
 import com.hiragi0w0.geopolaroid.domain.RouteMapModel
+import com.hiragi0w0.geopolaroid.map.MapUiState
 
 /** SC-03 完成地図。通常ピンと撮影順の直線のみ。地図が使えなくても一覧から写真を見られる。 */
 @Composable

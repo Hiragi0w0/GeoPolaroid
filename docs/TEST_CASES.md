@@ -67,13 +67,18 @@
 | 6章-5 / T06 | 起動時に地名未取得の SAVED 写真を再取得（取得済みは呼ばない） | `missingPlaceNamesAreRetriedOnStart` | 未取得分だけ補完 |
 | 6章-5 | 同じ写真の地名取得を重複して走らせない | `PlaceNameTest.duplicateRequestsWhileResolvingAreIgnored` | Geocoder 呼び出し 1 回 |
 | 4章 | SQL：地名未取得の SAVED を新しい順に件数制限付きで取得 | `PhotoSqlTest.savedWithoutPlaceNameIsNewestFirstAndLimited` | PENDING・取得済みを除外 |
+| 7章 / T08 | 完成地図はその記録日の SAVED のみを撮影順に描く | `MapControllerTest.showsOnlySavedPhotosOfThatDateInCaptureOrder` | 他日付・PENDING を除外 |
+| 3章 / T10 | 地図画面での除外でピンと線から消え、原本は残る | `excludeRemovesPinAndLineButKeepsOriginal` | 原本の削除なし |
+| 8章 | 地図画面での除外失敗を通知 | `excludeFailureIsReportedAndDismissable` | excludeFailed |
+| T12 | 地図画面でも復帰時に原本の欠落を検出 | `MapControllerTest.externallyDeletedOriginalIsDetectedOnResume` | missingPhotoIds |
+| 6章-5 | 地図画面にも地名取得中の状態を反映 | `placeNameResolvingStateIsPropagated` | resolvingPlaceIds |
 | 6章-6 | 片付けが途中で止まっても行が残り、次回の復旧で片付く（原本→行の順） | `CaptureCoordinatorTest.interruptedCleanupKeepsRowSoRecoveryCanFinishIt` / `interruptedRecoveryDiscardKeepsRow` | PENDING 行が残る |
 
 ### 実行結果（2026-10-22）
 
-- 72 件すべて成功（初回 48 件、レビュー1回目の改修で 15 件、2回目で 5 件、3回目で 1 件、4回目で 3 件追加）。
+- 77 件すべて成功（初回 48 件、レビュー1回目の改修で 15 件、2回目で 5 件、3回目で 1 件、4回目で 3 件、6回目で 5 件追加）。
 - テストの検出力確認として、境界判定（`<`→`<=`）、上限比較（`>=`→`>`）、キャンセル時の削除条件、上限カウント SQL、1枚時の線の抑止、04:00 タイマー、復旧完了待ち、復帰時の原本再検査、撮影中の再タップ防止、背面での撮影中止、片付けの順序をそれぞれ意図的に壊すと、対応するテストが失敗することを確認した。
-- 注意：作業環境から Google Maven（dl.google.com）に到達できないため、Android 依存部分（Room / Compose / Play Services / Maps）はこの環境でコンパイルしていない。上記はドメイン層・ホームの状態管理（HomeController）・SQL を Kotlin/JVM で実行した結果。Android Studio でのビルドと `./gradlew :app:testDebugUnitTest` での再実行が必要。
+- 注意：作業環境から Google Maven（dl.google.com）に到達できないため、Android 依存部分（Room / Compose / Play Services / Maps）はこの環境でコンパイルしていない。上記はドメイン層・ホーム／完成地図の状態管理（HomeController / MapController）・SQL を Kotlin/JVM で実行した結果。Android Studio でのビルドと `./gradlew :app:testDebugUnitTest` での再実行が必要。
 
 ## 実機・エミュレーターで確認する項目
 

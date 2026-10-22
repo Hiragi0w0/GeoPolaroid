@@ -124,16 +124,17 @@ fun GeoPolaroidApp(container: AppContainer) {
                 }
             },
         )
-        LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { mapViewModel.onResume() }
-        val mapState by mapViewModel.uiState.collectAsStateWithLifecycle()
-        val excludeFailed by mapViewModel.excludeFailed.collectAsStateWithLifecycle()
+        val map = mapViewModel.controller
+        LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { map.onResume() }
+        val mapState by map.uiState.collectAsStateWithLifecycle()
+        val excludeFailed by map.excludeFailed.collectAsStateWithLifecycle()
         MapScreen(
             state = mapState,
             hasMapsApiKey = BuildConfig.HAS_MAPS_API_KEY,
             excludeFailed = excludeFailed,
             onBack = { openedDate = null },
-            onExclude = { mapViewModel.exclude(it.photoId) },
-            onDismissExcludeError = mapViewModel::dismissExcludeError,
+            onExclude = { map.exclude(it.photoId) },
+            onDismissExcludeError = map::dismissExcludeError,
         )
     }
 }

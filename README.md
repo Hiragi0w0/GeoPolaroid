@@ -21,6 +21,7 @@ app/src/main/java/com/hiragi0w0/geopolaroid/
   domain/    写真モデル、04:00 境界の記録日判定、地図モデル、各ポート（Android 非依存）
   capture/   撮影・保存シーケンスと PENDING 復旧（Android 非依存）
   home/      ホームの状態と撮影フロー HomeController（Android 非依存、ViewModel から利用）
+  map/       完成地図の状態 MapController（Android 非依存、ViewModel から利用）
   data/      Room（photos 1テーブル）
   location/  FusedLocationProvider、Geocoder、地名整形
   media/     MediaStore への原本作成・検査・削除
