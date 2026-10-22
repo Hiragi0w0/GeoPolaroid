@@ -82,6 +82,24 @@ class PlaceNameTest {
     }
 
     @Test
+    fun duplicateRequestsWhileResolvingAreIgnored() = runTest {
+        repository.put(photo("a"))
+        val gate = CompletableDeferred<String?>()
+        var calls = 0
+        val service = PlaceNameService(
+            PlaceNameUpdater(repository, PlaceNameResolver { _, _ -> calls++; gate.await() }),
+            backgroundScope,
+        )
+        service.resolveInBackground("a")
+        service.resolveInBackground("a")
+        runCurrent()
+        gate.complete("糸島市")
+        runCurrent()
+        assertEquals(1, calls)
+        assertTrue(service.resolvingIds.value.isEmpty())
+    }
+
+    @Test
     fun formatterBuildsCityLevelName() {
         assertEquals("福岡市中央区", PlaceNameFormatter.format("福岡県", null, "福岡市", "中央区"))
         assertEquals("渋谷区", PlaceNameFormatter.format("東京都", null, "渋谷区", "神南"))

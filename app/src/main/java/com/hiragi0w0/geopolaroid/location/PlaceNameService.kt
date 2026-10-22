@@ -19,8 +19,14 @@ class PlaceNameService(
     private val _resolvingIds = MutableStateFlow<Set<String>>(emptySet())
     val resolvingIds: StateFlow<Set<String>> = _resolvingIds.asStateFlow()
 
+    /** 同じ写真をすでに取得中なら何もしない。 */
     fun resolveInBackground(photoId: String) {
-        _resolvingIds.update { it + photoId }
+        var started = false
+        _resolvingIds.update { ids ->
+            started = photoId !in ids
+            if (started) ids + photoId else ids
+        }
+        if (!started) return
         scope.launch {
             try {
                 updater.update(photoId)

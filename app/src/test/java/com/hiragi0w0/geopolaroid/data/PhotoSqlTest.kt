@@ -122,6 +122,19 @@ class PhotoSqlTest {
     }
 
     @Test
+    fun savedWithoutPlaceNameIsNewestFirstAndLimited() {
+        insert("old", "2026-10-20", 1, "SAVED")
+        insert("mid", "2026-10-21", 2, "SAVED")
+        insert("new", "2026-10-22", 3, "SAVED")
+        insert("pending", "2026-10-22", 4, "PENDING")
+        update(PhotoSql.UPDATE_PLACE_NAME, "placeName" to "福岡市", "photoId" to "mid")
+        val ids = query(PhotoSql.SELECT_SAVED_WITHOUT_PLACE_NAME, "limit" to 1) { it.getString("photoId") }
+        assertEquals(listOf("new"), ids)
+        val all = query(PhotoSql.SELECT_SAVED_WITHOUT_PLACE_NAME, "limit" to 10) { it.getString("photoId") }
+        assertEquals(listOf("new", "old"), all)
+    }
+
+    @Test
     fun pendingListAndFindByIdAndPlaceName() {
         insert("p2", "2026-10-22", 20, "PENDING")
         insert("p1", "2026-10-21", 10, "PENDING")

@@ -64,15 +64,25 @@ class HomeController(
     /** 原本の有無を再検査するきっかけ（画面復帰時）。 */
     private val mediaCheckTick = MutableStateFlow(0)
 
-    /** 撮影準備より先に完了させる、途中終了で残った PENDING の再確認。 */
+    /**
+     * 撮影準備より先に完了させる、途中終了で残った PENDING の再確認。
+     * 続けて、取得前にプロセスが終わった・オフラインだった等で地名が未取得の写真を再取得する。
+     */
     private val recoveryJob: Job = scope.launch {
         try {
-            val report = coordinator.recoverPending(activeStore.activePhotoId)
-            report.recovered.forEach { placeNames.resolveInBackground(it) }
+            coordinator.recoverPending(activeStore.activePhotoId)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             // 復旧できなかった行は PENDING のまま残り、次回の起動で再確認される。
+        }
+        try {
+            repository.findSavedWithoutPlaceName(PLACE_NAME_RETRY_LIMIT)
+                .forEach { placeNames.resolveInBackground(it.photoId) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // 次回の起動で再試行する。
         }
     }
 
@@ -266,5 +276,6 @@ class HomeController(
         const val STOP_TIMEOUT_MS = 5_000L
         const val MIN_TICK_MS = 1_000L
         const val MAX_TICK_MS = 15 * 60 * 1_000L
+        const val PLACE_NAME_RETRY_LIMIT = 20
     }
 }

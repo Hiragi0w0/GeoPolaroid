@@ -17,6 +17,9 @@ interface PhotoRepository {
     suspend fun findById(photoId: String): Photo?
     suspend fun findPending(): List<Photo>
 
+    /** 地名が未取得の SAVED 写真を新しい順に最大 [limit] 件。 */
+    suspend fun findSavedWithoutPlaceName(limit: Int): List<Photo>
+
     /** PENDING → SAVED。対象が PENDING でなければ false。 */
     suspend fun markSaved(photoId: String): Boolean
     suspend fun updatePlaceName(photoId: String, placeName: String)

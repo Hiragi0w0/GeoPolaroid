@@ -64,11 +64,14 @@
 | 6章 | 現在地取得中にアプリを離れたら、戻ってもカメラを自動起動せず中止・片付け | `leavingAppDuringLocationFixAbortsInsteadOfLaunchingLater` / `unconsumedCameraRequestIsAbortedOnStop` | CAPTURE_ABORTED、行・項目 0 件 |
 | 6章 | カメラ起動後の画面停止（カメラが前面）では中止しない | `stopAfterCameraLaunchDoesNotAbort` | 結果到着で保存 |
 | 6章 | 画面回転などの構成変更では撮影を中止しない | `configurationChangeDuringPreparationDoesNotAbort` | 新しい画面が要求を消費できる |
+| 6章-5 / T06 | 起動時に地名未取得の SAVED 写真を再取得（取得済みは呼ばない） | `missingPlaceNamesAreRetriedOnStart` | 未取得分だけ補完 |
+| 6章-5 | 同じ写真の地名取得を重複して走らせない | `PlaceNameTest.duplicateRequestsWhileResolvingAreIgnored` | Geocoder 呼び出し 1 回 |
+| 4章 | SQL：地名未取得の SAVED を新しい順に件数制限付きで取得 | `PhotoSqlTest.savedWithoutPlaceNameIsNewestFirstAndLimited` | PENDING・取得済みを除外 |
 | 6章-6 | 片付けが途中で止まっても行が残り、次回の復旧で片付く（原本→行の順） | `CaptureCoordinatorTest.interruptedCleanupKeepsRowSoRecoveryCanFinishIt` / `interruptedRecoveryDiscardKeepsRow` | PENDING 行が残る |
 
 ### 実行結果（2026-10-22）
 
-- 69 件すべて成功（初回 48 件、レビュー1回目の改修で 15 件、2回目で 5 件、3回目で 1 件追加）。
+- 72 件すべて成功（初回 48 件、レビュー1回目の改修で 15 件、2回目で 5 件、3回目で 1 件、4回目で 3 件追加）。
 - テストの検出力確認として、境界判定（`<`→`<=`）、上限比較（`>=`→`>`）、キャンセル時の削除条件、上限カウント SQL、1枚時の線の抑止、04:00 タイマー、復旧完了待ち、復帰時の原本再検査、撮影中の再タップ防止、背面での撮影中止、片付けの順序をそれぞれ意図的に壊すと、対応するテストが失敗することを確認した。
 - 注意：作業環境から Google Maven（dl.google.com）に到達できないため、Android 依存部分（Room / Compose / Play Services / Maps）はこの環境でコンパイルしていない。上記はドメイン層・ホームの状態管理（HomeController）・SQL を Kotlin/JVM で実行した結果。Android Studio でのビルドと `./gradlew :app:testDebugUnitTest` での再実行が必要。
 

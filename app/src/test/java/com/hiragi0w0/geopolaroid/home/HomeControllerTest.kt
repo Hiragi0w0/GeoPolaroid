@@ -292,6 +292,23 @@ class HomeControllerTest {
         assertTrue(created.imageUri in media.items) // 復旧に消されていない
     }
 
+    // T06
+    @Test
+    fun missingPlaceNamesAreRetriedOnStart() = runTest {
+        // 前回は地名取得前にプロセスが終了した／オフラインだった
+        val photo = savedPhoto("a")
+        repository.put(photo.copy(placeName = null))
+        savedPhoto("b").also { repository.put(it.copy(placeName = "糸島市")) }
+        var calls = 0
+        resolver.answer = { calls++; "福岡市中央区" }
+        val c = controller()
+        runCurrent()
+        assertEquals("福岡市中央区", repository.findById("a")!!.placeName)
+        assertEquals("糸島市", repository.findById("b")!!.placeName)
+        assertEquals(1, calls)
+        assertTrue(c.state().resolvingPlaceIds.isEmpty())
+    }
+
     // T07
     @Test
     fun recordDateSwitchesAt0400WhileOpen() = runTest {

@@ -27,6 +27,9 @@ abstract class PhotoDao {
     @Query(PhotoSql.SELECT_PENDING)
     abstract suspend fun findPending(): List<PhotoEntity>
 
+    @Query(PhotoSql.SELECT_SAVED_WITHOUT_PLACE_NAME)
+    abstract suspend fun findSavedWithoutPlaceName(limit: Int): List<PhotoEntity>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     abstract suspend fun insert(entity: PhotoEntity)
 
