@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -45,7 +46,10 @@ fun GeoPolaroidApp(container: AppContainer) {
     // アプリ再開時に必ず完成判定をやり直し、アプリ外で削除された原本も再検査する。
     // 開いたまま 04:00 を跨いだ場合は HomeController のタイマーが切り替える。
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { home.onResume() }
-    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { home.onStop() }
+    val activity = LocalActivity.current
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        home.onStop(isChangingConfigurations = activity?.isChangingConfigurations == true)
+    }
 
     // カメラ結果はどの画面にいても受け取れるようルートで登録する。
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->

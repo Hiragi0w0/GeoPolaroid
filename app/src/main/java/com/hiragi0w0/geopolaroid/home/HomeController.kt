@@ -150,8 +150,12 @@ class HomeController(
         mediaCheckTick.update { it + 1 }
     }
 
-    /** 画面が見えなくなったとき。まだカメラを起動していない撮影要求は中止する。 */
-    fun onStop() {
+    /**
+     * 画面が見えなくなったとき。まだカメラを起動していない撮影要求は中止する。
+     * 画面回転などの構成変更による停止はアプリを離れたわけではないので対象外（新しい画面が要求を引き継ぐ）。
+     */
+    fun onStop(isChangingConfigurations: Boolean) {
+        if (isChangingConfigurations) return
         isForeground = false
         val pending = _cameraRequest.value ?: return
         if (consumeCameraRequest(pending)) abortCapture(pending.photoId)

@@ -137,7 +137,7 @@ class HomeControllerTest {
     fun leavingAppDuringLocationFixAbortsInsteadOfLaunchingLater() = runTest {
         val c = controller()
         c.startCapture()
-        c.onStop() // 現在地取得中にホームボタン
+        c.onStop(isChangingConfigurations = false) // 現在地取得中にホームボタン
         runCurrent()
         assertNull(c.cameraRequest.value)
         assertEquals(HomeMessage.CAPTURE_ABORTED, c.state().message)
@@ -156,11 +156,25 @@ class HomeControllerTest {
         c.startCapture()
         runCurrent()
         val request = checkNotNull(c.cameraRequest.value)
-        c.onStop()
+        c.onStop(isChangingConfigurations = false)
         runCurrent()
         assertFalse(c.consumeCameraRequest(request))
         assertNull(repository.findById(request.photoId))
         assertEquals(CaptureStatus.IDLE, c.state().captureStatus)
+    }
+
+    @Test
+    fun configurationChangeDuringPreparationDoesNotAbort() = runTest {
+        val c = controller()
+        c.startCapture()
+        c.onStop(isChangingConfigurations = true) // 現在地取得中に画面回転
+        runCurrent()
+        val request = checkNotNull(c.cameraRequest.value)
+        c.onStop(isChangingConfigurations = true) // 要求の消費前にもう一度回転
+        runCurrent()
+        assertNull(c.state().message)
+        assertTrue(c.consumeCameraRequest(request)) // 新しい画面が引き継いで起動できる
+        assertEquals(SaveState.PENDING, repository.findById(request.photoId)!!.saveState)
     }
 
     @Test
@@ -171,7 +185,7 @@ class HomeControllerTest {
         runCurrent()
         val request = checkNotNull(c.cameraRequest.value)
         assertTrue(c.consumeCameraRequest(request))
-        c.onStop() // カメラアプリが前面に来た
+        c.onStop(isChangingConfigurations = false) // カメラアプリが前面に来た
         runCurrent()
         assertEquals(request.photoId, store.activePhotoId)
         media.write(request.imageUri)
