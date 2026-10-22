@@ -1,3 +1,56 @@
 <resources>
     <string name="app_name">GeoPolaroid</string>
+
+    <!-- ホーム -->
+    <string name="home_record_date_label">記録日</string>
+    <string name="home_count">%1$d / %2$d 枚</string>
+    <string name="home_boundary_note">翌朝 04:00 に記録日が切り替わり、完成地図になります。</string>
+    <string name="home_empty_title">まだ写真がありません</string>
+    <string name="home_empty_body">「撮影する」から今日の記録を始めましょう。</string>
+    <string name="home_past_records">過去の記録</string>
+    <string name="home_past_records_count">過去の記録（%1$d日）</string>
+    <string name="home_capture">撮影する</string>
+    <string name="home_capture_preparing">現在地を取得中…</string>
+    <string name="home_capture_camera_open">カメラで撮影中…</string>
+    <string name="home_capture_limit">この記録日は12枚に達しました</string>
+
+    <!-- 写真 -->
+    <string name="photo_time_caption">%1$s（カメラ起動時）</string>
+    <string name="photo_place_resolving">場所名を取得中…</string>
+    <string name="photo_place_failed">場所名を取得できませんでした</string>
+    <string name="photo_missing">元写真が見つかりません</string>
+    <string name="photo_content_description">%1$s に撮影した写真</string>
+    <string name="photo_exclude">記録から外す</string>
+    <string name="photo_exclude_confirm_title">記録から外しますか？</string>
+    <string name="photo_exclude_confirm_body">この記録からは消えますが、元の写真は端末の写真ライブラリに残ります。</string>
+    <string name="photo_exclude_failed">記録から外せませんでした。もう一度お試しください。</string>
+
+    <!-- 過去の記録 -->
+    <string name="past_dialog_empty">まだ完成した記録はありません。</string>
+    <string name="past_dialog_item_count">%1$d枚</string>
+
+    <!-- 完成地図 -->
+    <string name="map_photo_count">%1$d枚の写真</string>
+    <string name="map_line_note">ピンは撮影順の直線でつないでいます（実際の移動経路ではありません）。</string>
+    <string name="map_unavailable_title">地図を表示できません</string>
+    <string name="map_unavailable_body">Maps APIキー（MAPS_API_KEY）が設定されていません。写真は下の一覧から見られます。</string>
+    <string name="map_empty">この日の写真はありません。</string>
+
+    <!-- メッセージ -->
+    <string name="message_limit_reached">この記録日は12枚に達しました。写真を記録から外すと再び撮影できます。</string>
+    <string name="message_location_permission_denied">撮影には位置情報の許可が必要です。</string>
+    <string name="message_location_unavailable">現在地を取得できませんでした。位置情報がオンになっているか確認して、もう一度お試しください。</string>
+    <string name="message_storage_unavailable">写真の保存先を用意できませんでした。端末の空き容量を確認してください。</string>
+    <string name="message_camera_not_found">カメラアプリが見つかりませんでした。</string>
+    <string name="message_capture_cancelled">撮影をキャンセルしました。</string>
+    <string name="message_capture_failed">写真を保存できませんでした。もう一度お試しください。</string>
+    <string name="message_capture_unverified">写真を確認できませんでした。次回起動時に再確認します。</string>
+    <string name="message_unexpected_error">処理に失敗しました。もう一度お試しください。</string>
+
+    <!-- 共通 -->
+    <string name="action_retry">再試行</string>
+    <string name="action_open_settings">設定を開く</string>
+    <string name="action_close">閉じる</string>
+    <string name="action_cancel">キャンセル</string>
+    <string name="action_back">‹ 戻る</string>
 </resources>
