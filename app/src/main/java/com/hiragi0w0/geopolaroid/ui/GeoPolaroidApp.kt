@@ -39,34 +39,36 @@ fun GeoPolaroidApp(container: AppContainer) {
             initializer { HomeViewModel(container, createSavedStateHandle()) }
         },
     )
-    val currentRecordDate by homeViewModel.currentRecordDate.collectAsStateWithLifecycle()
+    val home = homeViewModel.controller
+    val currentRecordDate by home.currentRecordDate.collectAsStateWithLifecycle()
 
-    // アプリ再開時に必ず完成判定をやり直す（開いたまま 04:00 を跨いだ場合も含む）。
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { homeViewModel.refreshRecordDate() }
+    // アプリ再開時に必ず完成判定をやり直し、アプリ外で削除された原本も再検査する。
+    // 開いたまま 04:00 を跨いだ場合は HomeController のタイマーが切り替える。
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { home.onResume() }
 
     // カメラ結果はどの画面にいても受け取れるようルートで登録する。
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        homeViewModel.onCameraResult(success)
+        home.onCameraResult(success)
     }
-    val cameraRequest by homeViewModel.cameraRequest.collectAsStateWithLifecycle()
+    val cameraRequest by home.cameraRequest.collectAsStateWithLifecycle()
     LaunchedEffect(cameraRequest) {
         val request = cameraRequest ?: return@LaunchedEffect
-        if (!homeViewModel.consumeCameraRequest(request)) return@LaunchedEffect
+        if (!home.consumeCameraRequest(request)) return@LaunchedEffect
         try {
             cameraLauncher.launch(request.imageUri.toUri())
         } catch (e: ActivityNotFoundException) {
-            homeViewModel.onCameraLaunchFailed(request.photoId)
+            home.onCameraLaunchFailed(request.photoId)
         }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { grants ->
-        if (grants.values.any { it }) homeViewModel.startCapture() else homeViewModel.onLocationPermissionDenied()
+        if (grants.values.any { it }) home.startCapture() else home.onLocationPermissionDenied()
     }
     val requestCapture = {
         if (FusedLocationProvider.hasLocationPermission(context)) {
-            homeViewModel.startCapture()
+            home.startCapture()
         } else {
             permissionLauncher.launch(FusedLocationProvider.PERMISSIONS)
         }
@@ -76,7 +78,7 @@ fun GeoPolaroidApp(container: AppContainer) {
     val mapDate = openedDate?.let(LocalDate::parse)
 
     if (mapDate == null) {
-        val homeState by homeViewModel.uiState.collectAsStateWithLifecycle()
+        val homeState by home.uiState.collectAsStateWithLifecycle()
         HomeScreen(
             state = homeState,
             onCaptureClick = requestCapture,
@@ -89,14 +91,14 @@ fun GeoPolaroidApp(container: AppContainer) {
                     ),
                 )
             },
-            onDismissMessage = homeViewModel::dismissMessage,
+            onDismissMessage = home::dismissMessage,
             onOpenPastDate = { date ->
-                homeViewModel.refreshRecordDate()
-                if (RecordDay.isCompleted(date, homeViewModel.currentRecordDate.value)) {
+                home.refreshRecordDate()
+                if (RecordDay.isCompleted(date, home.currentRecordDate.value)) {
                     openedDate = date.toString()
                 }
             },
-            onExclude = { homeViewModel.exclude(it.photoId) },
+            onExclude = { home.exclude(it.photoId) },
         )
     } else {
         BackHandler { openedDate = null }
@@ -107,9 +109,10 @@ fun GeoPolaroidApp(container: AppContainer) {
         val mapViewModel: MapViewModel = viewModel(
             key = "map-$mapDate",
             factory = viewModelFactory {
-                initializer { MapViewModel(mapDate, container.repository) }
+                initializer { MapViewModel(mapDate, container.repository, container.mediaGateway) }
             },
         )
+        LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { mapViewModel.onResume() }
         val mapState by mapViewModel.uiState.collectAsStateWithLifecycle()
         val excludeFailed by mapViewModel.excludeFailed.collectAsStateWithLifecycle()
         MapScreen(

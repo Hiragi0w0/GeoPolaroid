@@ -46,12 +46,27 @@
 | 4章 | SQL：過去日付は SAVED 行の DISTINCT、PENDING だけの日は出ない | `savedDatesAreDistinctNewestFirstAndSkipPendingOnlyDays` | 新しい順・件数付き |
 | 4章 | SQL：状態遷移と削除は状態を越えない | `markSavedOnlyAffectsPending` / `deletePendingAndExcludeSavedDoNotCrossStates` | 対象外は 0 件 |
 | 3章 | 表示：撮影当時の TZ で時刻、日付は曜日付き | `DisplayFormatTest` | 「10:05」「2026年10月22日(木)」 |
+| 5章 | 次の 04:00（夏時間の日を含む）を求める | `RecordDayTest.nextBoundaryIsUpcomingLocal0400` | 次のローカル 04:00 |
+| 6章-5 | 地名取得中の id を公開し、DB エラーでも取得中のまま残らない | `PlaceNameTest.serviceTracksResolvingIdsAndSurvivesRepositoryErrors` | 完了後に空集合 |
+| T01 | 初回：0/12・空状態・撮影可能、空の日次レコードを作らない | `HomeControllerTest.initialStateIsEmptyAndCapturable` | 行 0 件 |
+| T02 | ホームの撮影フロー：準備→カメラ要求（1回だけ消費）→保存→地名補完 | `captureFlowSavesPhotoAndResolvesPlaceName` | 1枚・地名あり・撮影中 id クリア |
+| 4章 | 連打・カメラ起動中のタップで準備は1回だけ | `repeatedTapsPrepareOnlyOnce` | 位置取得 1 回、PENDING 1 件 |
+| T03 | キャンセルでメッセージ表示、枠と空項目を返す | `cancelShowsMessageAndFreesSlot` | 再び撮影可能 |
+| 8章 | カメラアプリなしで後片付け | `cameraLaunchFailureCleansUp` | CAMERA_NOT_FOUND、行 0 件 |
+| 6章 | 撮影中でないときのカメラ結果は無視 | `resultWithoutActiveCaptureIsIgnored` | 変化なし |
+| T05 | 権限拒否・位置取得失敗は再試行可能なメッセージ | `locationFailuresShowRetryableMessages` | 行・項目とも 0 |
+| T04 | 12枚で撮影不可、除外で再び可能（原本は残る） | `limitDisablesCaptureUntilExclusion` | canCapture が戻る |
+| T11 | プロセス再生成後、SavedState の撮影中 id は復旧対象外で、結果到着時に保存 | `restoredActivePhotoIsNotRecoveredAndCompletesOnResult` | SAVED 1件 |
+| T11 | 起動時復旧が遅くても、撮影準備は復旧完了を待つ | `recoveryFinishesBeforeNewCaptureIsPrepared` | 新しい PENDING が消されない |
+| 5章 / T07 | 画面を開いたまま 04:00 を跨ぐと記録日が切り替わる | `recordDateSwitchesAt0400WhileOpen` | 前日が「過去の記録」へ |
+| T07 | 前日が12枚でも 04:00 後は撮影可能になる | `fullPreviousDayDoesNotBlockNewDayAfterBoundary` | canCapture が true |
+| T12 | アプリ外で原本を削除すると復帰時に欠落表示、除外できる | `externallyDeletedOriginalIsDetectedOnResume` | missingPhotoIds に含まれる |
 
 ### 実行結果（2026-10-22）
 
-- 48 件すべて成功。
-- テストの検出力確認として、境界判定（`<`→`<=`）、上限比較（`>=`→`>`）、キャンセル時の削除条件、上限カウント SQL、1枚時の線の抑止をそれぞれ意図的に壊すと、対応するテストが失敗することを確認した。
-- 注意：作業環境から Google Maven（dl.google.com）に到達できないため、Android 依存部分（Room / Compose / Play Services / Maps）はこの環境でコンパイルしていない。上記はドメイン層・SQL を Kotlin/JVM で実行した結果。Android Studio でのビルドと `./gradlew :app:testDebugUnitTest` での再実行が必要。
+- 63 件すべて成功（初回 48 件、レビュー1回目の改修で 15 件追加）。
+- テストの検出力確認として、境界判定（`<`→`<=`）、上限比較（`>=`→`>`）、キャンセル時の削除条件、上限カウント SQL、1枚時の線の抑止、04:00 タイマー、復旧完了待ち、復帰時の原本再検査、撮影中の再タップ防止をそれぞれ意図的に壊すと、対応するテストが失敗することを確認した。
+- 注意：作業環境から Google Maven（dl.google.com）に到達できないため、Android 依存部分（Room / Compose / Play Services / Maps）はこの環境でコンパイルしていない。上記はドメイン層・ホームの状態管理（HomeController）・SQL を Kotlin/JVM で実行した結果。Android Studio でのビルドと `./gradlew :app:testDebugUnitTest` での再実行が必要。
 
 ## 実機・エミュレーターで確認する項目
 

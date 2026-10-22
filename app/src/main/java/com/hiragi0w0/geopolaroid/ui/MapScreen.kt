@@ -108,7 +108,11 @@ fun MapScreen(
                     .weight(0.4f),
             ) {
                 items(pins, key = { it.photoId }) { photo ->
-                    MapPhotoRow(photo = photo, onClick = { viewingPhotoId = photo.photoId })
+                    MapPhotoRow(
+                        photo = photo,
+                        isMissing = photo.photoId in state.missingPhotoIds,
+                        onClick = { viewingPhotoId = photo.photoId },
+                    )
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 }
             }
@@ -119,6 +123,7 @@ fun MapScreen(
     if (viewingPhoto != null) {
         PhotoViewerDialog(
             photo = viewingPhoto,
+            isMissing = viewingPhoto.photoId in state.missingPhotoIds,
             isResolvingPlace = false,
             onDismiss = { viewingPhotoId = null },
             onExclude = {
@@ -222,7 +227,7 @@ private fun RouteMap(
 }
 
 @Composable
-private fun MapPhotoRow(photo: Photo, onClick: () -> Unit) {
+private fun MapPhotoRow(photo: Photo, isMissing: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -232,6 +237,7 @@ private fun MapPhotoRow(photo: Photo, onClick: () -> Unit) {
     ) {
         PhotoImage(
             photo = photo,
+            isMissing = isMissing,
             modifier = Modifier
                 .size(56.dp)
                 .clip(RoundedCornerShape(8.dp)),

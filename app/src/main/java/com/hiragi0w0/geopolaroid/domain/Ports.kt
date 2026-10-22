@@ -60,6 +60,10 @@ interface MediaGateway {
     suspend fun delete(uri: String): Boolean
 }
 
+/** アプリ外で削除され、原本が見つからない写真の photoId。 */
+suspend fun MediaGateway.findMissing(photos: List<Photo>): Set<String> =
+    photos.filter { inspect(it.imageUri) == MediaCheck.MISSING }.mapTo(mutableSetOf()) { it.photoId }
+
 /** 座標から市区町村程度の地名を得る。失敗時は null。 */
 fun interface PlaceNameResolver {
     suspend fun resolve(latitude: Double, longitude: Double): String?

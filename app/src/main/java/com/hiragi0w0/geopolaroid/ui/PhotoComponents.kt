@@ -36,13 +36,21 @@ import com.hiragi0w0.geopolaroid.R
 import com.hiragi0w0.geopolaroid.domain.DisplayFormat
 import com.hiragi0w0.geopolaroid.domain.Photo
 
-/** MediaStore の原本を表示する。読めない場合は「元写真が見つかりません」を表示し、落ちない。 */
+/**
+ * MediaStore の原本を表示する。読めない場合は「元写真が見つかりません」を表示し、落ちない。
+ * [isMissing] は画面側の再検査結果で、表示中・キャッシュ済みの画像があってもアプリ外での削除を反映する。
+ */
 @Composable
 fun PhotoImage(
     photo: Photo,
+    isMissing: Boolean,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
 ) {
+    if (isMissing) {
+        Box(modifier = modifier) { PhotoPlaceholder(text = stringResource(R.string.photo_missing)) }
+        return
+    }
     SubcomposeAsyncImage(
         model = photo.imageUri.toUri(),
         contentDescription = stringResource(R.string.photo_content_description, DisplayFormat.time(photo)),
@@ -88,6 +96,7 @@ fun timeCaption(photo: Photo): String =
 @Composable
 fun PhotoViewerDialog(
     photo: Photo,
+    isMissing: Boolean,
     isResolvingPlace: Boolean,
     onDismiss: () -> Unit,
     onExclude: (Photo) -> Unit,
@@ -107,6 +116,7 @@ fun PhotoViewerDialog(
             Column(modifier = Modifier.padding(16.dp)) {
                 PhotoImage(
                     photo = photo,
+                    isMissing = isMissing,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .fillMaxWidth()

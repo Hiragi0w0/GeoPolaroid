@@ -1,9 +1,13 @@
 package com.hiragi0w0.geopolaroid.location
 
+import com.hiragi0w0.geopolaroid.domain.PhotoRepository
+import com.hiragi0w0.geopolaroid.domain.PlaceNameResolver
 import com.hiragi0w0.geopolaroid.domain.SaveState
 import com.hiragi0w0.geopolaroid.testing.FakePhotoRepository
 import com.hiragi0w0.geopolaroid.testing.FakePlaceNameResolver
 import com.hiragi0w0.geopolaroid.testing.photo
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,6 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** 仕様6章-5 と T06：地名取得失敗でも写真・座標は残る。 */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class PlaceNameTest {
     private val repository = FakePhotoRepository()
 
@@ -50,6 +55,30 @@ class PlaceNameTest {
         val updater = PlaceNameUpdater(repository, FakePlaceNameResolver())
         assertFalse(updater.update("p"))
         assertFalse(updater.update("gone"))
+    }
+
+    @Test
+    fun serviceTracksResolvingIdsAndSurvivesRepositoryErrors() = runTest {
+        repository.put(photo("a"))
+        val gate = CompletableDeferred<String?>()
+        val service = PlaceNameService(
+            PlaceNameUpdater(repository, PlaceNameResolver { _, _ -> gate.await() }),
+            backgroundScope,
+        )
+        service.resolveInBackground("a")
+        assertEquals(setOf("a"), service.resolvingIds.value)
+        gate.complete("糸島市")
+        runCurrent()
+        assertTrue(service.resolvingIds.value.isEmpty())
+        assertEquals("糸島市", repository.findById("a")!!.placeName)
+
+        val failing = object : PhotoRepository by repository {
+            override suspend fun findById(photoId: String) = throw IllegalStateException("db")
+        }
+        val broken = PlaceNameService(PlaceNameUpdater(failing, FakePlaceNameResolver()), backgroundScope)
+        broken.resolveInBackground("a")
+        runCurrent()
+        assertTrue(broken.resolvingIds.value.isEmpty())
     }
 
     @Test

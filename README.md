@@ -20,6 +20,7 @@ app/src/main/java/com/hiragi0w0/geopolaroid/
   MainActivity.kt / GeoPolaroidApplication.kt / AppContainer.kt  手動DI
   domain/    写真モデル、04:00 境界の記録日判定、地図モデル、各ポート（Android 非依存）
   capture/   撮影・保存シーケンスと PENDING 復旧（Android 非依存）
+  home/      ホームの状態と撮影フロー HomeController（Android 非依存、ViewModel から利用）
   data/      Room（photos 1テーブル）
   location/  FusedLocationProvider、Geocoder、地名整形
   media/     MediaStore への原本作成・検査・削除
@@ -40,5 +41,6 @@ app/src/main/java/com/hiragi0w0/geopolaroid/
 - 位置が取れない場合は撮影を開始しない。`getLastLocation()` は使わず、15秒より古い位置も採用しない。
 - 時刻・タイムゾーン変更への特別対応はしない。撮影時点の zoneId を保存し、時刻表示に使う。現在より未来の記録日（時計を戻した場合など）はその日が来るまで一覧に出ない。
 - 外部カメラが「キャンセル」を返しても中身のある画像が書かれていた場合、原本は消さず記録にも入れない。
-- 端末バックアップ（allowBackup）は無効。DB だけ復元されて原本がない状態を避けるため。
+- 端末バックアップ・端末間移行の対象から外している（allowBackup と dataExtractionRules）。DB だけ移って原本と対応しない状態を避けるため。
+- 記録日は画面復帰時に加え、画面を開いたままでも次の 04:00 に切り替わる。アプリ外で削除された原本は画面復帰時に再検査する。
 - 画面デザインは暫定。

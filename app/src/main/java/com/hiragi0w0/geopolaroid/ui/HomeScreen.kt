@@ -43,6 +43,9 @@ import com.hiragi0w0.geopolaroid.domain.DisplayFormat
 import com.hiragi0w0.geopolaroid.domain.MAX_PHOTOS_PER_RECORD_DATE
 import com.hiragi0w0.geopolaroid.domain.Photo
 import com.hiragi0w0.geopolaroid.domain.RecordDateSummary
+import com.hiragi0w0.geopolaroid.home.CaptureStatus
+import com.hiragi0w0.geopolaroid.home.HomeMessage
+import com.hiragi0w0.geopolaroid.home.HomeUiState
 import java.time.LocalDate
 
 /** SC-01 記録一覧（ホーム）。 */
@@ -100,6 +103,7 @@ fun HomeScreen(
             items(state.photos, key = { it.photoId }) { photo ->
                 PhotoCard(
                     photo = photo,
+                    isMissing = photo.photoId in state.missingPhotoIds,
                     isResolvingPlace = photo.photoId in state.resolvingPlaceIds,
                     onClick = { viewingPhotoId = photo.photoId },
                 )
@@ -111,6 +115,7 @@ fun HomeScreen(
     if (viewingPhoto != null) {
         PhotoViewerDialog(
             photo = viewingPhoto,
+            isMissing = viewingPhoto.photoId in state.missingPhotoIds,
             isResolvingPlace = viewingPhoto.photoId in state.resolvingPlaceIds,
             onDismiss = { viewingPhotoId = null },
             onExclude = {
@@ -179,7 +184,7 @@ private fun EmptyState() {
 }
 
 @Composable
-private fun PhotoCard(photo: Photo, isResolvingPlace: Boolean, onClick: () -> Unit) {
+private fun PhotoCard(photo: Photo, isMissing: Boolean, isResolvingPlace: Boolean, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -189,6 +194,7 @@ private fun PhotoCard(photo: Photo, isResolvingPlace: Boolean, onClick: () -> Un
     ) {
         PhotoImage(
             photo = photo,
+            isMissing = isMissing,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(4f / 3f),

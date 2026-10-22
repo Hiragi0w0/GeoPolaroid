@@ -11,6 +11,7 @@ import com.hiragi0w0.geopolaroid.domain.PlaceNameResolver
 import com.hiragi0w0.geopolaroid.domain.RecordDateSummary
 import com.hiragi0w0.geopolaroid.domain.SaveState
 import com.hiragi0w0.geopolaroid.domain.TimeSource
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -29,6 +30,9 @@ class FakeTimeSource(var instant: Instant, var zoneId: ZoneId = ZoneId.of("Asia/
 
 class FakePhotoRepository : PhotoRepository {
     private val rows = MutableStateFlow<Map<String, Photo>>(emptyMap())
+
+    /** 起動時復旧が遅い端末を模擬する（仮想時間）。 */
+    var findPendingDelayMs = 0L
 
     val all: List<Photo> get() = rows.value.values.sortedWith(PhotoDisplayOrder)
     fun saved(): List<Photo> = all.filter { it.saveState == SaveState.SAVED }
@@ -67,7 +71,10 @@ class FakePhotoRepository : PhotoRepository {
 
     override suspend fun findById(photoId: String): Photo? = rows.value[photoId]
 
-    override suspend fun findPending(): List<Photo> = pending()
+    override suspend fun findPending(): List<Photo> {
+        if (findPendingDelayMs > 0) delay(findPendingDelayMs)
+        return pending()
+    }
 
     override suspend fun markSaved(photoId: String): Boolean {
         val photo = rows.value[photoId]?.takeIf { it.saveState == SaveState.PENDING } ?: return false

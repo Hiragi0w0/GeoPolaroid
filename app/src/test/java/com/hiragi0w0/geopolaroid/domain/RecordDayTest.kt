@@ -61,6 +61,19 @@ class RecordDayTest {
     }
 
     @Test
+    fun nextBoundaryIsUpcomingLocal0400() {
+        fun next(local: String, zone: ZoneId = tokyo) =
+            RecordDay.nextBoundaryAfter(LocalDateTime.parse(local).atZone(zone).toInstant(), zone)
+                .atZone(zone).toLocalDateTime()
+        assertEquals(LocalDateTime.parse("2026-10-22T04:00"), next("2026-10-22T03:59:59"))
+        assertEquals(LocalDateTime.parse("2026-10-23T04:00"), next("2026-10-22T04:00"))
+        assertEquals(LocalDateTime.parse("2026-10-23T04:00"), next("2026-10-22T23:00"))
+        // 夏時間の切替日でも次のローカル 04:00
+        val newYork = ZoneId.of("America/New_York")
+        assertEquals(LocalDateTime.parse("2026-03-08T04:00"), next("2026-03-08T01:30", newYork))
+    }
+
+    @Test
     fun completionSwitchesAcross0400() {
         // 10/21 の記録は、10/22 03:59 時点では未完成、04:00 で完成になる
         val record = LocalDate.parse("2026-10-21")
