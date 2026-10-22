@@ -24,6 +24,7 @@ data class MapUiState(
     val recordDate: LocalDate,
     val model: RouteMapModel,
     val missingPhotoIds: Set<String>,
+    val resolvingPlaceIds: Set<String>,
 )
 
 /** 完成地図（終了した記録日）の表示状態。Room の写真群から都度描画する。 */
@@ -32,25 +33,29 @@ class MapViewModel(
     val recordDate: LocalDate,
     private val repository: PhotoRepository,
     private val mediaGateway: MediaGateway,
+    resolvingPlaceIds: StateFlow<Set<String>>,
 ) : ViewModel() {
     private val mediaCheckTick = MutableStateFlow(0)
 
-    val uiState: StateFlow<MapUiState> = combine(
+    private val photoState = combine(
         repository.observeSavedPhotos(recordDate),
         mediaCheckTick,
     ) { photos, _ -> photos }
-        .mapLatest { photos ->
-            MapUiState(
-                isLoading = false,
-                recordDate = recordDate,
-                model = RouteMapModel.from(photos),
-                missingPhotoIds = mediaGateway.findMissing(photos),
-            )
-        }
+        .mapLatest { photos -> RouteMapModel.from(photos) to mediaGateway.findMissing(photos) }
+
+    val uiState: StateFlow<MapUiState> = combine(photoState, resolvingPlaceIds) { (model, missing), resolving ->
+        MapUiState(
+            isLoading = false,
+            recordDate = recordDate,
+            model = model,
+            missingPhotoIds = missing,
+            resolvingPlaceIds = resolving,
+        )
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000L),
-            initialValue = MapUiState(true, recordDate, RouteMapModel.from(emptyList()), emptySet()),
+            initialValue = MapUiState(true, recordDate, RouteMapModel.from(emptyList()), emptySet(), emptySet()),
         )
 
     private val _excludeFailed = MutableStateFlow(false)

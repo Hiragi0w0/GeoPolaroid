@@ -111,6 +111,7 @@ fun MapScreen(
                     MapPhotoRow(
                         photo = photo,
                         isMissing = photo.photoId in state.missingPhotoIds,
+                        isResolvingPlace = photo.photoId in state.resolvingPlaceIds,
                         onClick = { viewingPhotoId = photo.photoId },
                     )
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -124,7 +125,7 @@ fun MapScreen(
         PhotoViewerDialog(
             photo = viewingPhoto,
             isMissing = viewingPhoto.photoId in state.missingPhotoIds,
-            isResolvingPlace = false,
+            isResolvingPlace = viewingPhoto.photoId in state.resolvingPlaceIds,
             onDismiss = { viewingPhotoId = null },
             onExclude = {
                 viewingPhotoId = null
@@ -227,7 +228,7 @@ private fun RouteMap(
 }
 
 @Composable
-private fun MapPhotoRow(photo: Photo, isMissing: Boolean, onClick: () -> Unit) {
+private fun MapPhotoRow(photo: Photo, isMissing: Boolean, isResolvingPlace: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -245,7 +246,7 @@ private fun MapPhotoRow(photo: Photo, isMissing: Boolean, onClick: () -> Unit) {
         Column(modifier = Modifier.padding(start = 12.dp)) {
             Text(timeCaption(photo), style = MaterialTheme.typography.bodyLarge)
             Text(
-                text = placeLabel(photo, isResolving = false),
+                text = placeLabel(photo, isResolvingPlace),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

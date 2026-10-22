@@ -114,7 +114,14 @@ fun GeoPolaroidApp(container: AppContainer) {
         val mapViewModel: MapViewModel = viewModel(
             key = "map-$mapDate",
             factory = viewModelFactory {
-                initializer { MapViewModel(mapDate, container.repository, container.mediaGateway) }
+                initializer {
+                    MapViewModel(
+                        recordDate = mapDate,
+                        repository = container.repository,
+                        mediaGateway = container.mediaGateway,
+                        resolvingPlaceIds = container.placeNames.resolvingIds,
+                    )
+                }
             },
         )
         LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { mapViewModel.onResume() }
