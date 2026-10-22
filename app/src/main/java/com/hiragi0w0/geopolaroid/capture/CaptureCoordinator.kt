@@ -127,7 +127,11 @@ class CaptureCoordinator(
         return PrepareResult.Ready(photoId, imageUri)
     }
 
-    suspend fun complete(photoId: String, cameraReportedSuccess: Boolean): CompleteResult {
+    suspend fun complete(photoId: String, cameraReportedSuccess: Boolean): CompleteResult =
+        // 片付けの途中で中断されると、参照されない空項目が残るため中断させない。
+        withContext(NonCancellable) { completeInternal(photoId, cameraReportedSuccess) }
+
+    private suspend fun completeInternal(photoId: String, cameraReportedSuccess: Boolean): CompleteResult {
         val photo = repository.findById(photoId)
         if (photo == null || photo.saveState != SaveState.PENDING) {
             return CompleteResult.ALREADY_HANDLED
@@ -147,10 +151,11 @@ class CaptureCoordinator(
             }
         }
         // キャンセル：枠を返す。空の項目だけ消し、中身のある・確認できない原本には触れない。
-        repository.deletePending(photoId)
+        // 原本を先に消す（行が残っていれば、途中で止まっても起動時復旧が片付けられる）。
         if (check == MediaCheck.EMPTY_OR_BROKEN || check == MediaCheck.MISSING) {
             mediaGateway.delete(photo.imageUri)
         }
+        repository.deletePending(photoId)
         return CompleteResult.CANCELLED
     }
 
@@ -173,7 +178,7 @@ class CaptureCoordinator(
                     if (repository.markSaved(photo.photoId)) recovered += photo.photoId
                 }
                 MediaCheck.EMPTY_OR_BROKEN, MediaCheck.MISSING -> {
-                    discard(photo)
+                    withContext(NonCancellable) { discard(photo) }
                     discarded += photo.photoId
                 }
                 MediaCheck.UNVERIFIABLE -> kept += photo.photoId
@@ -182,9 +187,10 @@ class CaptureCoordinator(
         return RecoveryReport(recovered, discarded, kept)
     }
 
+    /** 空・欠落した撮影の片付け。原本 → 行の順に消し、途中で止まっても行から再度たどれるようにする。 */
     private suspend fun discard(photo: Photo) {
-        repository.deletePending(photo.photoId)
         mediaGateway.delete(photo.imageUri)
+        repository.deletePending(photo.photoId)
     }
 
     private fun tryBeginPrepare(): Boolean = preparing.compareAndSet(false, true)

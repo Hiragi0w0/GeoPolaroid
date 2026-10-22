@@ -134,6 +134,54 @@ class HomeControllerTest {
     }
 
     @Test
+    fun leavingAppDuringLocationFixAbortsInsteadOfLaunchingLater() = runTest {
+        val c = controller()
+        c.startCapture()
+        c.onStop() // 現在地取得中にホームボタン
+        runCurrent()
+        assertNull(c.cameraRequest.value)
+        assertEquals(HomeMessage.CAPTURE_ABORTED, c.state().message)
+        assertTrue(repository.all.isEmpty())
+        assertTrue(media.items.isEmpty())
+
+        c.onResume() // 戻ってもカメラは自動で開かず、改めて撮影できる
+        runCurrent()
+        assertNull(c.cameraRequest.value)
+        assertTrue(c.state().canCapture)
+    }
+
+    @Test
+    fun unconsumedCameraRequestIsAbortedOnStop() = runTest {
+        val c = controller()
+        c.startCapture()
+        runCurrent()
+        val request = checkNotNull(c.cameraRequest.value)
+        c.onStop()
+        runCurrent()
+        assertFalse(c.consumeCameraRequest(request))
+        assertNull(repository.findById(request.photoId))
+        assertEquals(CaptureStatus.IDLE, c.state().captureStatus)
+    }
+
+    @Test
+    fun stopAfterCameraLaunchDoesNotAbort() = runTest {
+        val store = InMemoryActiveCaptureStore()
+        val c = controller(store)
+        c.startCapture()
+        runCurrent()
+        val request = checkNotNull(c.cameraRequest.value)
+        assertTrue(c.consumeCameraRequest(request))
+        c.onStop() // カメラアプリが前面に来た
+        runCurrent()
+        assertEquals(request.photoId, store.activePhotoId)
+        media.write(request.imageUri)
+        c.onResume()
+        c.onCameraResult(true)
+        runCurrent()
+        assertEquals(1, c.state().savedCount)
+    }
+
+    @Test
     fun cameraLaunchFailureCleansUp() = runTest {
         val c = controller()
         c.startCapture()

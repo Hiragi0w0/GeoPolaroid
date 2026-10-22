@@ -16,6 +16,7 @@ enum class HomeMessage(val retryable: Boolean = false) {
     CAPTURE_CANCELLED,
     CAPTURE_FAILED,
     CAPTURE_UNVERIFIED,
+    CAPTURE_ABORTED,
     UNEXPECTED_ERROR,
 }
 

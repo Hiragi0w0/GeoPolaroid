@@ -55,6 +55,12 @@ class HomeController(
     private val _cameraRequest = MutableStateFlow<CameraRequest?>(null)
     val cameraRequest: StateFlow<CameraRequest?> = _cameraRequest.asStateFlow()
 
+    /**
+     * 画面が前面にあるか。背面にいる間に準備が終わったカメラ要求は、戻ったときに
+     * 古い時刻・位置のままカメラが自動で開かないよう中止する。
+     */
+    private var isForeground = true
+
     /** 原本の有無を再検査するきっかけ（画面復帰時）。 */
     private val mediaCheckTick = MutableStateFlow(0)
 
@@ -139,8 +145,16 @@ class HomeController(
 
     /** 画面復帰時：記録日の再判定と、アプリ外で削除された原本の再検査。 */
     fun onResume() {
+        isForeground = true
         refreshRecordDate()
         mediaCheckTick.update { it + 1 }
+    }
+
+    /** 画面が見えなくなったとき。まだカメラを起動していない撮影要求は中止する。 */
+    fun onStop() {
+        isForeground = false
+        val pending = _cameraRequest.value ?: return
+        if (consumeCameraRequest(pending)) abortCapture(pending.photoId)
     }
 
     fun dismissMessage() {
@@ -170,7 +184,11 @@ class HomeController(
                 is PrepareResult.Ready -> {
                     activeStore.activePhotoId = result.photoId
                     captureStatus.value = CaptureStatus.CAMERA_OPEN
-                    _cameraRequest.value = CameraRequest(result.photoId, result.imageUri)
+                    if (isForeground) {
+                        _cameraRequest.value = CameraRequest(result.photoId, result.imageUri)
+                    } else {
+                        abortCapture(result.photoId)
+                    }
                     return@launch
                 }
                 PrepareResult.Busy -> Unit
@@ -189,6 +207,10 @@ class HomeController(
         if (_cameraRequest.value != request) return false
         _cameraRequest.value = null
         return true
+    }
+
+    private fun abortCapture(photoId: String) {
+        finishCapture(photoId, cameraReportedSuccess = false, failureMessage = HomeMessage.CAPTURE_ABORTED)
     }
 
     fun onCameraLaunchFailed(photoId: String) {

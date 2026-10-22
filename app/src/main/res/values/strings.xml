@@ -45,6 +45,7 @@
     <string name="message_capture_cancelled">撮影をキャンセルしました。</string>
     <string name="message_capture_failed">写真を保存できませんでした。もう一度お試しください。</string>
     <string name="message_capture_unverified">写真を確認できませんでした。次回起動時に再確認します。</string>
+    <string name="message_capture_aborted">撮影の準備中にアプリを離れたため、撮影を中止しました。</string>
     <string name="message_unexpected_error">処理に失敗しました。もう一度お試しください。</string>
 
     <!-- 共通 -->

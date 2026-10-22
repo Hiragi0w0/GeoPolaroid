@@ -252,6 +252,7 @@ private fun HomeMessage.textRes(): Int = when (this) {
     HomeMessage.CAPTURE_CANCELLED -> R.string.message_capture_cancelled
     HomeMessage.CAPTURE_FAILED -> R.string.message_capture_failed
     HomeMessage.CAPTURE_UNVERIFIED -> R.string.message_capture_unverified
+    HomeMessage.CAPTURE_ABORTED -> R.string.message_capture_aborted
     HomeMessage.UNEXPECTED_ERROR -> R.string.message_unexpected_error
 }
 

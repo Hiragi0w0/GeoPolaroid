@@ -61,11 +61,14 @@
 | 5章 / T07 | 画面を開いたまま 04:00 を跨ぐと記録日が切り替わる | `recordDateSwitchesAt0400WhileOpen` | 前日が「過去の記録」へ |
 | T07 | 前日が12枚でも 04:00 後は撮影可能になる | `fullPreviousDayDoesNotBlockNewDayAfterBoundary` | canCapture が true |
 | T12 | アプリ外で原本を削除すると復帰時に欠落表示、除外できる | `externallyDeletedOriginalIsDetectedOnResume` | missingPhotoIds に含まれる |
+| 6章 | 現在地取得中にアプリを離れたら、戻ってもカメラを自動起動せず中止・片付け | `leavingAppDuringLocationFixAbortsInsteadOfLaunchingLater` / `unconsumedCameraRequestIsAbortedOnStop` | CAPTURE_ABORTED、行・項目 0 件 |
+| 6章 | カメラ起動後の画面停止（カメラが前面）では中止しない | `stopAfterCameraLaunchDoesNotAbort` | 結果到着で保存 |
+| 6章-6 | 片付けが途中で止まっても行が残り、次回の復旧で片付く（原本→行の順） | `CaptureCoordinatorTest.interruptedCleanupKeepsRowSoRecoveryCanFinishIt` / `interruptedRecoveryDiscardKeepsRow` | PENDING 行が残る |
 
 ### 実行結果（2026-10-22）
 
-- 63 件すべて成功（初回 48 件、レビュー1回目の改修で 15 件追加）。
-- テストの検出力確認として、境界判定（`<`→`<=`）、上限比較（`>=`→`>`）、キャンセル時の削除条件、上限カウント SQL、1枚時の線の抑止、04:00 タイマー、復旧完了待ち、復帰時の原本再検査、撮影中の再タップ防止をそれぞれ意図的に壊すと、対応するテストが失敗することを確認した。
+- 68 件すべて成功（初回 48 件、レビュー1回目の改修で 15 件、2回目で 5 件追加）。
+- テストの検出力確認として、境界判定（`<`→`<=`）、上限比較（`>=`→`>`）、キャンセル時の削除条件、上限カウント SQL、1枚時の線の抑止、04:00 タイマー、復旧完了待ち、復帰時の原本再検査、撮影中の再タップ防止、背面での撮影中止、片付けの順序をそれぞれ意図的に壊すと、対応するテストが失敗することを確認した。
 - 注意：作業環境から Google Maven（dl.google.com）に到達できないため、Android 依存部分（Room / Compose / Play Services / Maps）はこの環境でコンパイルしていない。上記はドメイン層・ホームの状態管理（HomeController）・SQL を Kotlin/JVM で実行した結果。Android Studio でのビルドと `./gradlew :app:testDebugUnitTest` での再実行が必要。
 
 ## 実機・エミュレーターで確認する項目

@@ -101,6 +101,9 @@ class FakePhotoRepository : PhotoRepository {
 class FakeMediaGateway : MediaGateway {
     val items = linkedMapOf<String, MediaCheck>()
     var failCreate = false
+
+    /** 削除の途中でプロセスが落ちた状況を模擬する。 */
+    var failDelete = false
     val deleted = mutableListOf<String>()
     private var counter = 0
 
@@ -119,6 +122,7 @@ class FakeMediaGateway : MediaGateway {
     override suspend fun inspect(uri: String): MediaCheck = items[uri] ?: MediaCheck.MISSING
 
     override suspend fun delete(uri: String): Boolean {
+        if (failDelete) throw IllegalStateException("process died")
         deleted += uri
         return items.remove(uri) != null
     }

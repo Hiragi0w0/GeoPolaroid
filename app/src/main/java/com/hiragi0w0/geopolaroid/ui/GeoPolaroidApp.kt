@@ -45,6 +45,7 @@ fun GeoPolaroidApp(container: AppContainer) {
     // アプリ再開時に必ず完成判定をやり直し、アプリ外で削除された原本も再検査する。
     // 開いたまま 04:00 を跨いだ場合は HomeController のタイマーが切り替える。
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { home.onResume() }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { home.onStop() }
 
     // カメラ結果はどの画面にいても受け取れるようルートで登録する。
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->

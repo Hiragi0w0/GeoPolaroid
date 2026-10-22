@@ -89,6 +89,29 @@ class CaptureCoordinatorTest {
     }
 
     @Test
+    fun interruptedCleanupKeepsRowSoRecoveryCanFinishIt() = runTest {
+        // 片付けが原本削除の途中で止まっても、行が残っていれば次回の復旧で片付く
+        val ready = ready()
+        media.failDelete = true
+        runCatching { coordinator.complete(ready.photoId, false) }
+        assertEquals(SaveState.PENDING, repository.findById(ready.photoId)!!.saveState)
+
+        media.failDelete = false
+        assertEquals(listOf(ready.photoId), coordinator.recoverPending().discarded)
+        assertTrue(repository.all.isEmpty())
+        assertTrue(media.items.isEmpty())
+    }
+
+    @Test
+    fun interruptedRecoveryDiscardKeepsRow() = runTest {
+        repository.put(photo("empty", state = SaveState.PENDING, uri = "u-empty"))
+        media.write("u-empty", MediaCheck.EMPTY_OR_BROKEN)
+        media.failDelete = true
+        runCatching { coordinator.recoverPending() }
+        assertEquals(SaveState.PENDING, repository.findById("empty")!!.saveState)
+    }
+
+    @Test
     fun cancelKeepsRealImageButReleasesSlot() = runTest {
         val ready = ready()
         media.write(ready.imageUri) // 中身のある原本は消さない
