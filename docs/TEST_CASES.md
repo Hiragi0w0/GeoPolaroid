@@ -62,6 +62,8 @@
 | 5章 / T07 | 画面を開いたまま 04:00 を跨ぐと記録日が切り替わる | `recordDateSwitchesAt0400WhileOpen` | 前日が「過去の記録」へ |
 | T07 | 前日が12枚でも 04:00 後は撮影可能になる | `fullPreviousDayDoesNotBlockNewDayAfterBoundary` | canCapture が true |
 | T12 | アプリ外で原本を削除すると復帰時に欠落表示、除外できる | `externallyDeletedOriginalIsDetectedOnResume` | missingPhotoIds に含まれる |
+| 4章 / T03 | 空項目の削除が一時的に失敗しても、再起動を待たずに再試行して枠を戻す（自動の再試行・画面復帰時） | `slotIsFreedByRetryWhenEmptyItemDeletionFailsOnce` / `resumeRetriesLeftoverCleanup` | 11枚＋キャンセルで再び撮影可能 |
+| 6章-6 | 残った PENDING の片付けは、準備中の撮影の行を消さない（同じロックで1つずつ実行） | `leftoverCleanupNeverDiscardsCaptureBeingPrepared` | 新しい PENDING とその項目が残る |
 | 6章 | 現在地取得中にアプリを離れたら、戻ってもカメラを自動起動せず中止・片付け | `leavingAppDuringLocationFixAbortsInsteadOfLaunchingLater` / `unconsumedCameraRequestIsAbortedOnStop` | CAPTURE_ABORTED、行・項目 0 件 |
 | 6章 | カメラ起動後の画面停止（カメラが前面）では中止しない | `stopAfterCameraLaunchDoesNotAbort` | 結果到着で保存 |
 | 6章 | 画面回転などの構成変更では撮影を中止しない | `configurationChangeDuringPreparationDoesNotAbort` | 新しい画面が要求を消費できる |
@@ -81,7 +83,7 @@
 
 ### 実行結果（2026-10-22）
 
-- 87 件すべて成功（初回 48 件、レビュー1回目の改修で 15 件、2回目で 5 件、3回目で 1 件、4回目で 3 件、6回目で 5 件、PR レビュー対応で 10 件追加）。
+- 90 件すべて成功（初回 48 件、レビュー1回目の改修で 15 件、2回目で 5 件、3回目で 1 件、4回目で 3 件、6回目で 5 件、PR レビュー対応で 13 件追加）。
 - テストの検出力確認として、境界判定（`<`→`<=`）、上限比較（`>=`→`>`）、キャンセル時の削除条件、上限カウント SQL、1枚時の線の抑止、04:00 タイマー、復旧完了待ち、復帰時の原本再検査、撮影中の再タップ防止、背面での撮影中止、片付けの順序をそれぞれ意図的に壊すと、対応するテストが失敗することを確認した。
 - 注意：作業環境から Google Maven（dl.google.com）に到達できないため、Android 依存部分（Room / Compose / Play Services / Maps）はこの環境でコンパイルしていない。上記はドメイン層・ホーム／完成地図の状態管理（HomeController / MapController）・SQL を Kotlin/JVM で実行した結果。Android Studio でのビルドと `./gradlew :app:testDebugUnitTest` での再実行が必要。
 

@@ -8,6 +8,7 @@ import com.hiragi0w0.geopolaroid.domain.Photo
 import com.hiragi0w0.geopolaroid.domain.PhotoRepository
 import com.hiragi0w0.geopolaroid.domain.RecordDateSummary
 import com.hiragi0w0.geopolaroid.domain.RecordDay
+import com.hiragi0w0.geopolaroid.domain.SaveState
 import com.hiragi0w0.geopolaroid.domain.TimeSource
 import com.hiragi0w0.geopolaroid.domain.findMissing
 import com.hiragi0w0.geopolaroid.location.PlaceNameService
@@ -26,6 +27,8 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.Duration
 import java.time.LocalDate
 
@@ -65,17 +68,17 @@ class HomeController(
     private val mediaCheckTick = MutableStateFlow(0)
 
     /**
+     * 撮影準備・完了処理と、残った PENDING の片付けを1つずつ実行するためのロック。
+     * 準備で作ったばかりの（まだ空の）行を、片付けが誤って消さないようにする。
+     */
+    private val pendingLock = Mutex()
+
+    /**
      * 撮影準備より先に完了させる、途中終了で残った PENDING の再確認。
      * 続けて、取得前にプロセスが終わった・オフラインだった等で地名が未取得の写真を再取得する。
      */
     private val recoveryJob: Job = scope.launch {
-        try {
-            coordinator.recoverPending(activeStore.activePhotoId)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            // 復旧できなかった行は PENDING のまま残り、次回の起動で再確認される。
-        }
+        cleanUpLeftoverPending()
         try {
             placeNames.resolveAllInBackground(repository.findSavedIdsWithoutPlaceName())
         } catch (e: CancellationException) {
@@ -152,11 +155,12 @@ class HomeController(
         currentDate.value = timeSource.currentRecordDate()
     }
 
-    /** 画面復帰時：記録日の再判定と、アプリ外で削除された原本の再検査。 */
+    /** 画面復帰時：記録日の再判定、アプリ外で削除された原本の再検査、残った PENDING の片付けの再試行。 */
     fun onResume() {
         isForeground = true
         refreshRecordDate()
         mediaCheckTick.update { it + 1 }
+        if (captureStatus.value == CaptureStatus.IDLE) scope.launch { cleanUpLeftoverPending() }
     }
 
     /**
@@ -187,7 +191,11 @@ class HomeController(
         scope.launch {
             val result = try {
                 recoveryJob.join()
-                coordinator.prepare()
+                pendingLock.withLock {
+                    coordinator.prepare().also {
+                        if (it is PrepareResult.Ready) activeStore.activePhotoId = it.photoId
+                    }
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -195,7 +203,6 @@ class HomeController(
             }
             when (result) {
                 is PrepareResult.Ready -> {
-                    activeStore.activePhotoId = result.photoId
                     captureStatus.value = CaptureStatus.CAMERA_OPEN
                     if (isForeground) {
                         _cameraRequest.value = CameraRequest(result.photoId, result.imageUri)
@@ -238,14 +245,22 @@ class HomeController(
     private fun finishCapture(photoId: String, cameraReportedSuccess: Boolean, failureMessage: HomeMessage?) {
         scope.launch {
             val result = try {
-                coordinator.complete(photoId, cameraReportedSuccess)
+                pendingLock.withLock {
+                    try {
+                        coordinator.complete(photoId, cameraReportedSuccess)
+                    } finally {
+                        if (activeStore.activePhotoId == photoId) activeStore.activePhotoId = null
+                    }
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 null
             }
-            if (activeStore.activePhotoId == photoId) activeStore.activePhotoId = null
             captureStatus.value = CaptureStatus.IDLE
+            if (result != CompleteResult.SAVED && result != CompleteResult.ALREADY_HANDLED) {
+                retryLeftoverCleanup(photoId)
+            }
             refreshRecordDate()
             if (result == CompleteResult.SAVED) placeNames.resolveInBackground(photoId)
             message.value = failureMessage ?: when (result) {
@@ -256,6 +271,39 @@ class HomeController(
                 null -> HomeMessage.UNEXPECTED_ERROR
             }
         }
+    }
+
+    /**
+     * 空項目を削除できずに PENDING が残った（枠を使ったままの）場合、プロセスの再起動を待たずに
+     * 片付けを再試行する。画面復帰時にも [onResume] から再試行される。
+     */
+    private fun retryLeftoverCleanup(photoId: String) {
+        scope.launch {
+            try {
+                repeat(LEFTOVER_RETRY_COUNT) {
+                    if (repository.findById(photoId)?.saveState != SaveState.PENDING) return@launch
+                    delay(LEFTOVER_RETRY_INTERVAL_MS)
+                    cleanUpLeftoverPending()
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // 画面復帰時・次回起動時に再試行する。
+            }
+        }
+    }
+
+    /** 残った PENDING を再確認する（結果待ちのカメラの行は対象外）。 */
+    private suspend fun cleanUpLeftoverPending() {
+        val report = try {
+            pendingLock.withLock { coordinator.recoverPending(activeStore.activePhotoId) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // 片付けられなかった行は PENDING のまま残り、次の機会に再確認される。
+            return
+        }
+        if (report.recovered.isNotEmpty()) placeNames.resolveAllInBackground(report.recovered)
     }
 
     /** 記録から除外する（DB行のみ削除し、端末の写真は残す）。 */
@@ -275,5 +323,7 @@ class HomeController(
         const val STOP_TIMEOUT_MS = 5_000L
         const val MIN_TICK_MS = 1_000L
         const val MAX_TICK_MS = 15 * 60 * 1_000L
+        const val LEFTOVER_RETRY_COUNT = 5
+        const val LEFTOVER_RETRY_INTERVAL_MS = 10_000L
     }
 }

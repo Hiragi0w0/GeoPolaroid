@@ -322,6 +322,82 @@ class HomeControllerTest {
         assertTrue(c.state().resolvingPlaceIds.isEmpty())
     }
 
+    // T03 / T04：キャンセルは枠を使わない（空項目の削除が一時的に失敗しても、再起動を待たずに枠が戻る）
+    @Test
+    fun slotIsFreedByRetryWhenEmptyItemDeletionFailsOnce() = runTest {
+        repeat(MAX_PHOTOS_PER_RECORD_DATE - 1) { savedPhoto("s$it") }
+        val c = controller()
+        c.startCapture()
+        runCurrent()
+        val request = checkNotNull(c.cameraRequest.value)
+        assertTrue(c.consumeCameraRequest(request))
+        media.refuseDelete = true
+        c.onCameraResult(false)
+        runCurrent()
+        assertEquals(MAX_PHOTOS_PER_RECORD_DATE, c.state().activeCount)
+        assertFalse(c.state().canCapture)
+
+        media.refuseDelete = false // 一時的な失敗が解消
+        advanceTimeBy(10_001)
+        runCurrent()
+        assertNull(repository.findById(request.photoId))
+        assertTrue(request.imageUri !in media.items)
+        assertEquals(MAX_PHOTOS_PER_RECORD_DATE - 1, c.state().activeCount)
+        assertTrue(c.state().canCapture)
+    }
+
+    @Test
+    fun resumeRetriesLeftoverCleanup() = runTest {
+        val c = controller()
+        c.startCapture()
+        runCurrent()
+        val request = checkNotNull(c.cameraRequest.value)
+        assertTrue(c.consumeCameraRequest(request))
+        media.refuseDelete = true
+        c.onCameraResult(false)
+        runCurrent()
+        assertEquals(SaveState.PENDING, repository.findById(request.photoId)!!.saveState)
+
+        media.refuseDelete = false
+        c.onResume() // 自動の再試行を待たずに、画面復帰で片付く
+        runCurrent()
+        assertNull(repository.findById(request.photoId))
+        assertEquals(0, c.state().activeCount)
+    }
+
+    @Test
+    fun leftoverCleanupNeverDiscardsCaptureBeingPrepared() = runTest {
+        // 前回のキャンセルで空項目の削除に失敗 → 10秒後に片付けの再試行が予約される
+        val c = controller()
+        c.startCapture()
+        runCurrent()
+        val first = checkNotNull(c.cameraRequest.value)
+        assertTrue(c.consumeCameraRequest(first))
+        media.refuseDelete = true
+        c.onCameraResult(false)
+        runCurrent()
+        media.refuseDelete = false
+
+        // 次の撮影準備で PENDING 行を登録した直後（撮影中 id を記録する前）に、その再試行が重なる
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        repository.afterInsertPending = { gate.await() }
+        c.startCapture()
+        runCurrent()
+        val second = repository.pending().single { it.photoId != first.photoId }
+        advanceTimeBy(10_001)
+        runCurrent()
+        gate.complete(Unit)
+        runCurrent()
+
+        assertEquals(SaveState.PENDING, repository.findById(second.photoId)!!.saveState) // まだ空でも消されない
+        assertTrue(second.imageUri in media.items)
+        assertEquals(second.photoId, c.cameraRequest.value?.photoId)
+        // 片付けは準備の後に行われ、前回の残りだけが消える
+        advanceTimeBy(10_001)
+        runCurrent()
+        assertNull(repository.findById(first.photoId))
+    }
+
     // T07
     @Test
     fun recordDateSwitchesAt0400WhileOpen() = runTest {

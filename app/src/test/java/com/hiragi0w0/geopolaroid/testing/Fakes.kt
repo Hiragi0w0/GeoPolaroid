@@ -34,6 +34,9 @@ class FakePhotoRepository : PhotoRepository {
     /** 起動時復旧が遅い端末を模擬する（仮想時間）。 */
     var findPendingDelayMs = 0L
 
+    /** PENDING 行の登録直後に呼ぶ（登録から呼び出し元へ戻るまでの間に割り込む状況を作る）。 */
+    var afterInsertPending: (suspend () -> Unit)? = null
+
     val all: List<Photo> get() = rows.value.values.sortedWith(PhotoDisplayOrder)
     fun saved(): List<Photo> = all.filter { it.saveState == SaveState.SAVED }
     fun pending(): List<Photo> = all.filter { it.saveState == SaveState.PENDING }
@@ -66,6 +69,7 @@ class FakePhotoRepository : PhotoRepository {
         if (countActive(photo.recordDate) >= limit) return false
         require(photo.photoId !in rows.value) { "duplicate id" }
         put(photo)
+        afterInsertPending?.invoke()
         return true
     }
 
