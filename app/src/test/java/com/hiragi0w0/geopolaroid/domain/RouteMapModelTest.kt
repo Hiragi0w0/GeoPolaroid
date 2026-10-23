@@ -45,6 +45,48 @@ class RouteMapModelTest {
     }
 
     @Test
+    fun boundsAcrossAntimeridianUseTheShortSide() {
+        val model = RouteMapModel.from(
+            listOf(photo("a", at = 1, lat = -17.0, lng = 179.9), photo("b", at = 2, lat = -18.0, lng = -179.9)),
+        )
+        val bounds = model.bounds!!
+        assertEquals(179.9, bounds.southWest.longitude, 1e-9) // 西端
+        assertEquals(-179.9, bounds.northEast.longitude, 1e-9) // 東端（日付変更線の向こう）
+        assertEquals(0.2, bounds.longitudeSpan, 1e-9)
+        assertEquals(180.0, kotlin.math.abs(bounds.center.longitude), 1e-9)
+        assertEquals(-17.5, bounds.center.latitude, 1e-9)
+        assertFalse(bounds.isPointLike)
+    }
+
+    @Test
+    fun boundsAcrossAntimeridianWithSeveralPoints() {
+        val bounds = RouteMapModel.from(
+            listOf(
+                photo("a", at = 1, lng = 178.0),
+                photo("b", at = 2, lng = -179.0),
+                photo("c", at = 3, lng = 179.5),
+                photo("d", at = 4, lng = -177.0),
+            ),
+        ).bounds!!
+        assertEquals(178.0, bounds.southWest.longitude, 1e-9)
+        assertEquals(-177.0, bounds.northEast.longitude, 1e-9)
+        assertEquals(5.0, bounds.longitudeSpan, 1e-9)
+        assertEquals(-179.5, bounds.center.longitude, 1e-9)
+    }
+
+    @Test
+    fun ordinaryBoundsAreUnchanged() {
+        val bounds = RouteMapModel.from(
+            listOf(photo("a", at = 1, lng = 130.0), photo("b", at = 2, lng = 140.0), photo("c", at = 3, lng = -10.0)),
+        ).bounds!!
+        // 隙間は 140→-10(+360)=210° が最大なので、-10〜140 の通常範囲
+        assertEquals(-10.0, bounds.southWest.longitude, 1e-9)
+        assertEquals(140.0, bounds.northEast.longitude, 1e-9)
+        assertEquals(150.0, bounds.longitudeSpan, 1e-9)
+        assertEquals(65.0, bounds.center.longitude, 1e-9)
+    }
+
+    @Test
     fun sameTimestampIsOrderedStablyByPhotoId() {
         val model = RouteMapModel.from(listOf(photo("b", at = 5), photo("a", at = 5)))
         assertEquals(listOf("a", "b"), model.pins.map { it.photoId })

@@ -37,6 +37,7 @@
 | 2章 | 地名は市区町村程度に整形 | `formatterBuildsCityLevelName` | 「福岡市中央区」「渋谷区」等 |
 | 7章 | 0枚：ピン・線・範囲なし | `RouteMapModelTest.emptyDayHasNoPinsNoLineNoBounds` | すべて空 |
 | 7章 / T08 | 1枚はピンのみで線なし | `singlePhotoHasPinOnlyWithoutLine` | polyline 空 |
+| 7章 | 日付変更線をまたぐ写真は短い側の範囲で表示（179.9° と -179.9° → 約0.2°） | `boundsAcrossAntimeridianUseTheShortSide` / `boundsAcrossAntimeridianWithSeveralPoints` / `ordinaryBoundsAreUnchanged` | 世界全体に縮小しない |
 | 7章 / T08 | 2枚以上は撮影順の直線 | `multiplePhotosAreConnectedInCaptureOrder` / `sameTimestampIsOrderedStablyByPhotoId` | 基準時刻→photoId 順 |
 | 7章 | PENDING は地図に描かない | `pendingRowsAreNotDrawn` | SAVED のみ |
 | 3章 / T09 | 完全に重なるピンも分離せず全件保持 | `overlappingPinsAreAllKept` | 2ピン（一覧から到達可能） |
@@ -65,8 +66,11 @@
 | 6章 | カメラ起動後の画面停止（カメラが前面）では中止しない | `stopAfterCameraLaunchDoesNotAbort` | 結果到着で保存 |
 | 6章 | 画面回転などの構成変更では撮影を中止しない | `configurationChangeDuringPreparationDoesNotAbort` | 新しい画面が要求を消費できる |
 | 6章-5 / T06 | 起動時に地名未取得の SAVED 写真を再取得（取得済みは呼ばない） | `missingPlaceNamesAreRetriedOnStart` | 未取得分だけ補完 |
+| 6章-5 | 未取得が21件以上でも古い写真を取り残さず全件再取得 | `allMissingPlaceNamesAreRetriedEvenBeyondTwenty` | 25件すべて補完 |
+| 6章-5 | 一括再取得は1件ずつ順に行い、取得中の写真は重複させない | `PlaceNameTest.bulkResolutionRunsOneAtATimeAndSkipsInProgressIds` | 同時実行は一括側1件 |
+| 6章-5 | 一括再取得が中断されても「取得中」のまま残らない | `cancelledBulkResolutionDoesNotLeaveIdsResolving` | resolvingIds が空 |
 | 6章-5 | 同じ写真の地名取得を重複して走らせない | `PlaceNameTest.duplicateRequestsWhileResolvingAreIgnored` | Geocoder 呼び出し 1 回 |
-| 4章 | SQL：地名未取得の SAVED を新しい順に件数制限付きで取得 | `PhotoSqlTest.savedWithoutPlaceNameIsNewestFirstAndLimited` | PENDING・取得済みを除外 |
+| 4章 | SQL：地名未取得の SAVED の id を新しい順に件数制限なしで取得 | `PhotoSqlTest.savedIdsWithoutPlaceNameAreNewestFirstWithoutLimit` | PENDING・取得済みを除外 |
 | 7章 / T08 | 完成地図はその記録日の SAVED のみを撮影順に描く | `MapControllerTest.showsOnlySavedPhotosOfThatDateInCaptureOrder` | 他日付・PENDING を除外 |
 | 3章 / T10 | 地図画面での除外でピンと線から消え、原本は残る | `excludeRemovesPinAndLineButKeepsOriginal` | 原本の削除なし |
 | 8章 | 地図画面での除外失敗を通知 | `excludeFailureIsReportedAndDismissable` | excludeFailed |
@@ -76,7 +80,7 @@
 
 ### 実行結果（2026-10-22）
 
-- 77 件すべて成功（初回 48 件、レビュー1回目の改修で 15 件、2回目で 5 件、3回目で 1 件、4回目で 3 件、6回目で 5 件追加）。
+- 83 件すべて成功（初回 48 件、レビュー1回目の改修で 15 件、2回目で 5 件、3回目で 1 件、4回目で 3 件、6回目で 5 件、PR レビュー対応で 6 件追加）。
 - テストの検出力確認として、境界判定（`<`→`<=`）、上限比較（`>=`→`>`）、キャンセル時の削除条件、上限カウント SQL、1枚時の線の抑止、04:00 タイマー、復旧完了待ち、復帰時の原本再検査、撮影中の再タップ防止、背面での撮影中止、片付けの順序をそれぞれ意図的に壊すと、対応するテストが失敗することを確認した。
 - 注意：作業環境から Google Maven（dl.google.com）に到達できないため、Android 依存部分（Room / Compose / Play Services / Maps）はこの環境でコンパイルしていない。上記はドメイン層・ホーム／完成地図の状態管理（HomeController / MapController）・SQL を Kotlin/JVM で実行した結果。Android Studio でのビルドと `./gradlew :app:testDebugUnitTest` での再実行が必要。
 

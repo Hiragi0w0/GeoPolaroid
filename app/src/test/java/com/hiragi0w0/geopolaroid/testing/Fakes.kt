@@ -76,8 +76,8 @@ class FakePhotoRepository : PhotoRepository {
         return pending()
     }
 
-    override suspend fun findSavedWithoutPlaceName(limit: Int): List<Photo> =
-        saved().filter { it.placeName == null }.sortedWith(PhotoDisplayOrder.reversed()).take(limit)
+    override suspend fun findSavedIdsWithoutPlaceName(): List<String> =
+        saved().filter { it.placeName == null }.sortedWith(PhotoDisplayOrder.reversed()).map { it.photoId }
 
     override suspend fun markSaved(photoId: String): Boolean {
         val photo = rows.value[photoId]?.takeIf { it.saveState == SaveState.PENDING } ?: return false

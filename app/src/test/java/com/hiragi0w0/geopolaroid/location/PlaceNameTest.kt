@@ -100,6 +100,49 @@ class PlaceNameTest {
     }
 
     @Test
+    fun bulkResolutionRunsOneAtATimeAndSkipsInProgressIds() = runTest {
+        repeat(3) { repository.put(photo("p$it")) }
+        val gate = CompletableDeferred<String?>()
+        var calls = 0
+        var active = 0
+        var maxActive = 0
+        val service = PlaceNameService(
+            PlaceNameUpdater(repository, PlaceNameResolver { _, _ ->
+                calls++
+                active++
+                maxActive = maxOf(maxActive, active)
+                try { gate.await() } finally { active-- }
+            }),
+            backgroundScope,
+        )
+        service.resolveInBackground("p0") // 個別に取得中
+        service.resolveAllInBackground(listOf("p0", "p1", "p2", "p1"))
+        runCurrent()
+        assertEquals(setOf("p0", "p1", "p2"), service.resolvingIds.value)
+        assertEquals(2, maxActive) // 個別の p0 と一括の1件だけ
+        gate.complete("糸島市")
+        runCurrent()
+        assertEquals(3, calls)
+        assertTrue(service.resolvingIds.value.isEmpty())
+        assertTrue(repository.saved().all { it.placeName == "糸島市" })
+    }
+
+    @Test
+    fun cancelledBulkResolutionDoesNotLeaveIdsResolving() = runTest {
+        repeat(2) { repository.put(photo("p$it")) }
+        val scope = kotlinx.coroutines.CoroutineScope(coroutineContext + kotlinx.coroutines.Job())
+        val service = PlaceNameService(
+            PlaceNameUpdater(repository, PlaceNameResolver { _, _ -> CompletableDeferred<String?>().await() }),
+            scope,
+        )
+        service.resolveAllInBackground(listOf("p0", "p1"))
+        runCurrent()
+        scope.coroutineContext[kotlinx.coroutines.Job]!!.cancel()
+        runCurrent()
+        assertTrue(service.resolvingIds.value.isEmpty())
+    }
+
+    @Test
     fun formatterBuildsCityLevelName() {
         assertEquals("福岡市中央区", PlaceNameFormatter.format("福岡県", null, "福岡市", "中央区"))
         assertEquals("渋谷区", PlaceNameFormatter.format("東京都", null, "渋谷区", "神南"))

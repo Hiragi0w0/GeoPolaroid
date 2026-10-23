@@ -77,8 +77,7 @@ class HomeController(
             // 復旧できなかった行は PENDING のまま残り、次回の起動で再確認される。
         }
         try {
-            repository.findSavedWithoutPlaceName(PLACE_NAME_RETRY_LIMIT)
-                .forEach { placeNames.resolveInBackground(it.photoId) }
+            placeNames.resolveAllInBackground(repository.findSavedIdsWithoutPlaceName())
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -276,6 +275,5 @@ class HomeController(
         const val STOP_TIMEOUT_MS = 5_000L
         const val MIN_TICK_MS = 1_000L
         const val MAX_TICK_MS = 15 * 60 * 1_000L
-        const val PLACE_NAME_RETRY_LIMIT = 20
     }
 }

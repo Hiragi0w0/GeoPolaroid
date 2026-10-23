@@ -309,6 +309,19 @@ class HomeControllerTest {
         assertTrue(c.state().resolvingPlaceIds.isEmpty())
     }
 
+    @Test
+    fun allMissingPlaceNamesAreRetriedEvenBeyondTwenty() = runTest {
+        // オフライン旅行などで未取得が多数溜まっても、古い写真を取り残さない
+        repeat(25) { i -> savedPhoto("s$i").also { repository.put(it.copy(requestedAtUtc = i.toLong())) } }
+        var calls = 0
+        resolver.answer = { calls++; "福岡市中央区" }
+        val c = controller()
+        runCurrent()
+        assertTrue(repository.saved().all { it.placeName == "福岡市中央区" })
+        assertEquals(25, calls)
+        assertTrue(c.state().resolvingPlaceIds.isEmpty())
+    }
+
     // T07
     @Test
     fun recordDateSwitchesAt0400WhileOpen() = runTest {

@@ -122,16 +122,16 @@ class PhotoSqlTest {
     }
 
     @Test
-    fun savedWithoutPlaceNameIsNewestFirstAndLimited() {
+    fun savedIdsWithoutPlaceNameAreNewestFirstWithoutLimit() {
         insert("old", "2026-10-20", 1, "SAVED")
         insert("mid", "2026-10-21", 2, "SAVED")
         insert("new", "2026-10-22", 3, "SAVED")
         insert("pending", "2026-10-22", 4, "PENDING")
         update(PhotoSql.UPDATE_PLACE_NAME, "placeName" to "福岡市", "photoId" to "mid")
-        val ids = query(PhotoSql.SELECT_SAVED_WITHOUT_PLACE_NAME, "limit" to 1) { it.getString("photoId") }
-        assertEquals(listOf("new"), ids)
-        val all = query(PhotoSql.SELECT_SAVED_WITHOUT_PLACE_NAME, "limit" to 10) { it.getString("photoId") }
-        assertEquals(listOf("new", "old"), all)
+        val ids = query(PhotoSql.SELECT_SAVED_IDS_WITHOUT_PLACE_NAME) { it.getString("photoId") }
+        assertEquals(listOf("new", "old"), ids)
+        repeat(30) { insert("bulk$it", "2026-10-19", 100L + it, "SAVED") }
+        assertEquals(32, query(PhotoSql.SELECT_SAVED_IDS_WITHOUT_PLACE_NAME) { it.getString(1) }.size)
     }
 
     @Test

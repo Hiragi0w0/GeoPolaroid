@@ -29,8 +29,7 @@ class RoomPhotoRepository(private val dao: PhotoDao) : PhotoRepository {
 
     override suspend fun findPending(): List<Photo> = dao.findPending().map { it.toDomain() }
 
-    override suspend fun findSavedWithoutPlaceName(limit: Int): List<Photo> =
-        dao.findSavedWithoutPlaceName(limit).map { it.toDomain() }
+    override suspend fun findSavedIdsWithoutPlaceName(): List<String> = dao.findSavedIdsWithoutPlaceName()
 
     override suspend fun markSaved(photoId: String): Boolean = dao.markSaved(photoId) > 0
 

@@ -29,14 +29,47 @@ class PlaceNameService(
         if (!started) return
         scope.launch {
             try {
-                updater.update(photoId)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                // DB エラー等。地名は未取得のまま残す。
+                updateQuietly(photoId)
             } finally {
                 _resolvingIds.update { it - photoId }
             }
+        }
+    }
+
+    /**
+     * 複数の写真を1件ずつ順に取得する（Geocoder へ同時に大量の要求を出さないため）。
+     * 件数に上限はなく、すでに取得中の写真は除く。
+     */
+    fun resolveAllInBackground(photoIds: List<String>) {
+        var queued = emptyList<String>()
+        _resolvingIds.update { ids ->
+            queued = photoIds.distinct().filter { it !in ids }
+            ids + queued
+        }
+        if (queued.isEmpty()) return
+        scope.launch {
+            try {
+                for (photoId in queued) {
+                    try {
+                        updateQuietly(photoId)
+                    } finally {
+                        _resolvingIds.update { it - photoId }
+                    }
+                }
+            } finally {
+                // 途中で中断された場合も「取得中」のまま残さない。
+                _resolvingIds.update { it - queued.toSet() }
+            }
+        }
+    }
+
+    private suspend fun updateQuietly(photoId: String) {
+        try {
+            updater.update(photoId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // DB エラー等。地名は未取得のまま残す。
         }
     }
 }

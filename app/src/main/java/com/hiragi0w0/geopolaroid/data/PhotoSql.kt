@@ -25,10 +25,10 @@ object PhotoSql {
     const val SELECT_PENDING =
         "SELECT * FROM photos WHERE saveState = 'PENDING' ORDER BY requestedAtUtc ASC, photoId ASC"
 
-    /** 地名を未取得のまま残った保存済み写真（新しい順）。 */
-    const val SELECT_SAVED_WITHOUT_PLACE_NAME =
-        "SELECT * FROM photos WHERE saveState = 'SAVED' AND placeName IS NULL " +
-            "ORDER BY requestedAtUtc DESC, photoId DESC LIMIT :limit"
+    /** 地名を未取得のまま残った保存済み写真の id（新しい順、件数制限なし）。 */
+    const val SELECT_SAVED_IDS_WITHOUT_PLACE_NAME =
+        "SELECT photoId FROM photos WHERE saveState = 'SAVED' AND placeName IS NULL " +
+            "ORDER BY requestedAtUtc DESC, photoId DESC"
 
     const val MARK_SAVED =
         "UPDATE photos SET saveState = 'SAVED' WHERE photoId = :photoId AND saveState = 'PENDING'"
