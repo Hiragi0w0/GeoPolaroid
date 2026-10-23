@@ -144,18 +144,18 @@ class CaptureCoordinator(
                     else CompleteResult.ALREADY_HANDLED
                 }
                 MediaCheck.EMPTY_OR_BROKEN, MediaCheck.MISSING -> {
-                    discard(photo)
+                    discard(photo, check)
                     CompleteResult.FAILED
                 }
                 MediaCheck.UNVERIFIABLE -> CompleteResult.UNVERIFIED
             }
         }
         // キャンセル：枠を返す。空の項目だけ消し、中身のある・確認できない原本には触れない。
-        // 原本を先に消す（行が残っていれば、途中で止まっても起動時復旧が片付けられる）。
         if (check == MediaCheck.EMPTY_OR_BROKEN || check == MediaCheck.MISSING) {
-            mediaGateway.delete(photo.imageUri)
+            discard(photo, check)
+        } else {
+            repository.deletePending(photoId)
         }
-        repository.deletePending(photoId)
         return CompleteResult.CANCELLED
     }
 
@@ -173,13 +173,13 @@ class CaptureCoordinator(
                 kept += photo.photoId
                 continue
             }
-            when (mediaGateway.inspect(photo.imageUri)) {
+            when (val check = mediaGateway.inspect(photo.imageUri)) {
                 MediaCheck.VALID -> {
                     if (repository.markSaved(photo.photoId)) recovered += photo.photoId
                 }
                 MediaCheck.EMPTY_OR_BROKEN, MediaCheck.MISSING -> {
-                    withContext(NonCancellable) { discard(photo) }
-                    discarded += photo.photoId
+                    val removed = withContext(NonCancellable) { discard(photo, check) }
+                    if (removed) discarded += photo.photoId else kept += photo.photoId
                 }
                 MediaCheck.UNVERIFIABLE -> kept += photo.photoId
             }
@@ -187,10 +187,17 @@ class CaptureCoordinator(
         return RecoveryReport(recovered, discarded, kept)
     }
 
-    /** 空・欠落した撮影の片付け。原本 → 行の順に消し、途中で止まっても行から再度たどれるようにする。 */
-    private suspend fun discard(photo: Photo) {
-        mediaGateway.delete(photo.imageUri)
-        repository.deletePending(photo.photoId)
+    /**
+     * 空・欠落した撮影の片付け。原本 → 行の順に消し、原本が消えたこと（元から無い場合を含む）を
+     * 確かめてから行を消す。原本を消せなかったときは PENDING 行を残し、次回の起動時復旧で再試行する。
+     * @return 行まで片付けられたら true。
+     */
+    private suspend fun discard(photo: Photo, check: MediaCheck): Boolean {
+        val mediaGone = mediaGateway.delete(photo.imageUri) ||
+            check == MediaCheck.MISSING ||
+            mediaGateway.inspect(photo.imageUri) == MediaCheck.MISSING
+        if (mediaGone) repository.deletePending(photo.photoId)
+        return mediaGone
     }
 
     private fun tryBeginPrepare(): Boolean = preparing.compareAndSet(false, true)

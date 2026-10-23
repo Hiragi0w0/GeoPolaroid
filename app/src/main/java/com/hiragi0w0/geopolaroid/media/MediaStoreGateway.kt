@@ -35,16 +35,28 @@ class MediaStoreGateway(private val resolver: ContentResolver) : MediaGateway {
         }
     }
 
+    /**
+     * 画像として読めるかを確かめる。サイズ情報（ヘッダ）だけでは途中で書き込みが止まったファイルも
+     * 通ってしまうため、縮小デコードで画像データまで読めることを確認する。
+     */
     override suspend fun inspect(uri: String): MediaCheck = withContext(Dispatchers.IO) {
         try {
-            val stream = resolver.openInputStream(uri.toUri()) ?: return@withContext MediaCheck.UNVERIFIABLE
-            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            stream.use { BitmapFactory.decodeStream(it, null, options) }
-            if (options.outWidth > 0 && options.outHeight > 0) {
-                MediaCheck.VALID
-            } else {
-                MediaCheck.EMPTY_OR_BROKEN
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            val opened = resolver.openInputStream(uri.toUri()) ?: return@withContext MediaCheck.UNVERIFIABLE
+            opened.use { BitmapFactory.decodeStream(it, null, bounds) }
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext MediaCheck.EMPTY_OR_BROKEN
+
+            val sampled = BitmapFactory.Options().apply {
+                inSampleSize = sampleSizeFor(bounds.outWidth, bounds.outHeight)
             }
+            val stream = resolver.openInputStream(uri.toUri()) ?: return@withContext MediaCheck.UNVERIFIABLE
+            val bitmap = stream.use { BitmapFactory.decodeStream(it, null, sampled) }
+                ?: return@withContext MediaCheck.EMPTY_OR_BROKEN
+            bitmap.recycle()
+            MediaCheck.VALID
+        } catch (e: OutOfMemoryError) {
+            // 読めないとは言い切れないので消さない
+            MediaCheck.UNVERIFIABLE
         } catch (e: FileNotFoundException) {
             MediaCheck.MISSING
         } catch (e: SecurityException) {
@@ -66,5 +78,14 @@ class MediaStoreGateway(private val resolver: ContentResolver) : MediaGateway {
 
     private companion object {
         const val ALBUM = "GeoPolaroid"
+
+        /** 検査用デコードの長辺の目安（px）。 */
+        const val CHECK_DECODE_MAX_SIDE = 256
+
+        fun sampleSizeFor(width: Int, height: Int): Int {
+            var sample = 1
+            while (maxOf(width, height) / (sample * 2) >= CHECK_DECODE_MAX_SIDE) sample *= 2
+            return sample
+        }
     }
 }

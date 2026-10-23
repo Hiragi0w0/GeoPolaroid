@@ -103,6 +103,49 @@ class CaptureCoordinatorTest {
     }
 
     @Test
+    fun cancelKeepsRowWhenEmptyItemCannotBeDeleted() = runTest {
+        val ready = ready()
+        media.refuseDelete = true
+        assertEquals(CompleteResult.CANCELLED, coordinator.complete(ready.photoId, false))
+        // 空項目が消せなかったので、行を残して次回の復旧で再試行する
+        assertEquals(SaveState.PENDING, repository.findById(ready.photoId)!!.saveState)
+        assertTrue(ready.imageUri in media.items)
+
+        media.refuseDelete = false
+        assertEquals(listOf(ready.photoId), coordinator.recoverPending().discarded)
+        assertTrue(repository.all.isEmpty())
+        assertTrue(media.items.isEmpty())
+    }
+
+    @Test
+    fun failedSaveKeepsRowWhenEmptyItemCannotBeDeleted() = runTest {
+        val ready = ready()
+        media.refuseDelete = true
+        assertEquals(CompleteResult.FAILED, coordinator.complete(ready.photoId, true))
+        assertEquals(SaveState.PENDING, repository.findById(ready.photoId)!!.saveState)
+    }
+
+    @Test
+    fun recoveryKeepsRowWhenEmptyItemCannotBeDeleted() = runTest {
+        repository.put(photo("empty", state = SaveState.PENDING, uri = "u-empty"))
+        media.write("u-empty", MediaCheck.EMPTY_OR_BROKEN)
+        media.refuseDelete = true
+        val report = coordinator.recoverPending()
+        assertEquals(listOf("empty"), report.kept)
+        assertTrue(report.discarded.isEmpty())
+        assertEquals(SaveState.PENDING, repository.findById("empty")!!.saveState)
+    }
+
+    @Test
+    fun missingItemRowIsRemovedEvenThoughDeleteReportsNothing() = runTest {
+        // 原本が元から無い場合、削除件数は 0 でも片付けは完了している
+        repository.put(photo("gone", state = SaveState.PENDING, uri = "u-gone"))
+        media.refuseDelete = true
+        assertEquals(listOf("gone"), coordinator.recoverPending().discarded)
+        assertNull(repository.findById("gone"))
+    }
+
+    @Test
     fun interruptedRecoveryDiscardKeepsRow() = runTest {
         repository.put(photo("empty", state = SaveState.PENDING, uri = "u-empty"))
         media.write("u-empty", MediaCheck.EMPTY_OR_BROKEN)

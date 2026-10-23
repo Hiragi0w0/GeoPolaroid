@@ -76,11 +76,12 @@
 | 8章 | 地図画面での除外失敗を通知 | `excludeFailureIsReportedAndDismissable` | excludeFailed |
 | T12 | 地図画面でも復帰時に原本の欠落を検出 | `MapControllerTest.externallyDeletedOriginalIsDetectedOnResume` | missingPhotoIds |
 | 6章-5 | 地図画面にも地名取得中の状態を反映 | `placeNameResolvingStateIsPropagated` | resolvingPlaceIds |
+| 6章-6 | 空項目を削除できなかったときは PENDING 行を残し、次回の復旧で再試行（原本が元から無ければ行を消す） | `cancelKeepsRowWhenEmptyItemCannotBeDeleted` / `failedSaveKeepsRowWhenEmptyItemCannotBeDeleted` / `recoveryKeepsRowWhenEmptyItemCannotBeDeleted` / `missingItemRowIsRemovedEvenThoughDeleteReportsNothing` | 参照されない空項目を残さない |
 | 6章-6 | 片付けが途中で止まっても行が残り、次回の復旧で片付く（原本→行の順） | `CaptureCoordinatorTest.interruptedCleanupKeepsRowSoRecoveryCanFinishIt` / `interruptedRecoveryDiscardKeepsRow` | PENDING 行が残る |
 
 ### 実行結果（2026-10-22）
 
-- 83 件すべて成功（初回 48 件、レビュー1回目の改修で 15 件、2回目で 5 件、3回目で 1 件、4回目で 3 件、6回目で 5 件、PR レビュー対応で 6 件追加）。
+- 87 件すべて成功（初回 48 件、レビュー1回目の改修で 15 件、2回目で 5 件、3回目で 1 件、4回目で 3 件、6回目で 5 件、PR レビュー対応で 10 件追加）。
 - テストの検出力確認として、境界判定（`<`→`<=`）、上限比較（`>=`→`>`）、キャンセル時の削除条件、上限カウント SQL、1枚時の線の抑止、04:00 タイマー、復旧完了待ち、復帰時の原本再検査、撮影中の再タップ防止、背面での撮影中止、片付けの順序をそれぞれ意図的に壊すと、対応するテストが失敗することを確認した。
 - 注意：作業環境から Google Maven（dl.google.com）に到達できないため、Android 依存部分（Room / Compose / Play Services / Maps）はこの環境でコンパイルしていない。上記はドメイン層・ホーム／完成地図の状態管理（HomeController / MapController）・SQL を Kotlin/JVM で実行した結果。Android Studio でのビルドと `./gradlew :app:testDebugUnitTest` での再実行が必要。
 
@@ -99,4 +100,5 @@
 | T09 | ピンをタップ／同位置に複数撮影 | 写真・時刻・地名のダイアログ。重なったピンは下の一覧から開ける |
 | T10 | 地図画面で写真を除外 | ピンと線から消える。写真アプリの原本は残る |
 | T11 | カメラ起動中にプロセスを終了（開発者オプション「アクティビティを保持しない」等）して撮影→戻る | 写真が SAVED として1件だけ表示 |
+| 6章-6 | 撮影中にカメラアプリを強制終了するなどで途中まで書かれたファイルを作り、アプリを再起動 | 画像データまで読めないファイルは SAVED にせず片付ける（縮小デコードで検査） |
 | T12 | 写真アプリで原本を削除／機内モードで地図を開く／MAPS_API_KEY 未設定 | 「元写真が見つかりません」表示で除外可能。地図が出なくても一覧で閲覧でき、クラッシュしない |

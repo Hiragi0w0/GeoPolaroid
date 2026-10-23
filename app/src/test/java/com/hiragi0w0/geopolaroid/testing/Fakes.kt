@@ -107,6 +107,9 @@ class FakeMediaGateway : MediaGateway {
 
     /** 削除の途中でプロセスが落ちた状況を模擬する。 */
     var failDelete = false
+
+    /** プロバイダの一時的な失敗などで削除できず false が返る状況を模擬する（項目は残る）。 */
+    var refuseDelete = false
     val deleted = mutableListOf<String>()
     private var counter = 0
 
@@ -126,6 +129,7 @@ class FakeMediaGateway : MediaGateway {
 
     override suspend fun delete(uri: String): Boolean {
         if (failDelete) throw IllegalStateException("process died")
+        if (refuseDelete) return false
         deleted += uri
         return items.remove(uri) != null
     }
