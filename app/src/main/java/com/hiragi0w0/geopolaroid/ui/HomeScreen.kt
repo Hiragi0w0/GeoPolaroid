@@ -1,30 +1,35 @@
 package com.hiragi0w0.geopolaroid.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,18 +40,25 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.hiragi0w0.geopolaroid.R
 import com.hiragi0w0.geopolaroid.domain.DisplayFormat
 import com.hiragi0w0.geopolaroid.domain.MAX_PHOTOS_PER_RECORD_DATE
 import com.hiragi0w0.geopolaroid.domain.Photo
-import com.hiragi0w0.geopolaroid.domain.RecordDateSummary
 import com.hiragi0w0.geopolaroid.home.CaptureStatus
 import com.hiragi0w0.geopolaroid.home.HomeMessage
 import com.hiragi0w0.geopolaroid.home.HomeUiState
-import java.time.LocalDate
 
 /** SC-01 記録一覧（ホーム）。 */
 @Composable
@@ -56,58 +68,64 @@ fun HomeScreen(
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
     onDismissMessage: () -> Unit,
-    onOpenPastDate: (LocalDate) -> Unit,
+    onOpenPastRecords: () -> Unit,
     onExclude: (Photo) -> Unit,
 ) {
     var viewingPhotoId by rememberSaveable { mutableStateOf<String?>(null) }
-    var showPastDates by rememberSaveable { mutableStateOf(false) }
+    val insets = WindowInsets.safeDrawing.asPaddingValues()
 
-    Scaffold(
-        bottomBar = { CaptureBar(state = state, onCaptureClick = onCaptureClick) },
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = innerPadding.calculateTopPadding() + 16.dp,
-                bottom = innerPadding.calculateBottomPadding() + 16.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            item(key = "header") { HomeHeader(state) }
-            state.message?.let { message ->
-                item(key = "message") {
-                    MessageCard(
-                        message = message,
-                        onRetry = onRetry,
-                        onOpenSettings = onOpenSettings,
-                        onDismiss = onDismissMessage,
+    // Surface で背景色に合う文字色（ダークモードでは明るい色）を子に渡す。
+    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
+                contentPadding = PaddingValues(
+                    start = 20.dp,
+                    end = 20.dp,
+                    top = insets.calculateTopPadding() + 8.dp,
+                    bottom = insets.calculateBottomPadding() + CAPTURE_AREA_HEIGHT,
+                ),
+                verticalArrangement = Arrangement.spacedBy(28.dp),
+            ) {
+                item(key = "header") { HomeHeader(state, onOpenPastRecords) }
+                state.message?.let { message ->
+                    item(key = "message") {
+                        MessageCard(
+                            message = message,
+                            onRetry = onRetry,
+                            onOpenSettings = onOpenSettings,
+                            onDismiss = onDismissMessage,
+                        )
+                    }
+                }
+                if (!state.isLoading && state.photos.isEmpty()) {
+                    item(key = "empty") { EmptyState() }
+                }
+                items(state.photos, key = { it.photoId }) { photo ->
+                    PhotoCard(
+                        photo = photo,
+                        isMissing = photo.photoId in state.missingPhotoIds,
+                        isResolvingPlace = photo.photoId in state.resolvingPlaceIds,
+                        onClick = { viewingPhotoId = photo.photoId },
                     )
                 }
             }
-            item(key = "past") {
-                OutlinedButton(
-                    onClick = { showPastDates = true },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        if (state.pastDates.isEmpty()) stringResource(R.string.home_past_records)
-                        else stringResource(R.string.home_past_records_count, state.pastDates.size),
-                    )
-                }
-            }
-            if (!state.isLoading && state.photos.isEmpty()) {
-                item(key = "empty") { EmptyState() }
-            }
-            items(state.photos, key = { it.photoId }) { photo ->
-                PhotoCard(
-                    photo = photo,
-                    isMissing = photo.photoId in state.missingPhotoIds,
-                    isResolvingPlace = photo.photoId in state.resolvingPlaceIds,
-                    onClick = { viewingPhotoId = photo.photoId },
-                )
-            }
+
+            // 端から端まで描画しているため、スクロールした写真がステータスバーの下に透けないようにする。
+            Spacer(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .windowInsetsTopHeight(WindowInsets.statusBars)
+                    .background(MaterialTheme.colorScheme.background),
+            )
+            CaptureArea(
+                state = state,
+                onCaptureClick = onCaptureClick,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
     }
 
@@ -124,44 +142,78 @@ fun HomeScreen(
             },
         )
     }
-
-    if (showPastDates) {
-        PastDatesDialog(
-            dates = state.pastDates,
-            onSelect = {
-                showPastDates = false
-                onOpenPastDate(it)
-            },
-            onDismiss = { showPastDates = false },
-        )
-    }
 }
 
 @Composable
-private fun HomeHeader(state: HomeUiState) {
+private fun HomeHeader(state: HomeUiState, onOpenPastRecords: () -> Unit) {
     Column {
-        Text(
-            text = stringResource(R.string.home_record_date_label),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = DisplayFormat.date(state.recordDate),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = stringResource(R.string.home_count, state.savedCount, MAX_PHOTOS_PER_RECORD_DATE),
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(top = 4.dp),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.home_record_date_label),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = DisplayFormat.date(state.recordDate),
+                    style = MaterialTheme.typography.headlineMedium,
+                )
+            }
+            IconButton(onClick = onOpenPastRecords) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_history),
+                    contentDescription = stringResource(R.string.home_past_records),
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.padding(top = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ExposureCounter(
+                savedCount = state.savedCount,
+                activeCount = state.activeCount,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = stringResource(R.string.home_count, state.savedCount, MAX_PHOTOS_PER_RECORD_DATE),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Text(
             text = stringResource(R.string.home_boundary_note),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp),
+            modifier = Modifier.padding(top = 8.dp),
         )
+    }
+}
+
+/**
+ * フィルムの残り枚数のように、上限12枚をドットで表す。保存済みは塗りつぶし、撮影中（PENDING）は淡く塗る。
+ * 枚数は隣の文字で読み上げるので、ドット自体は読み上げ対象から外す。
+ */
+@Composable
+private fun ExposureCounter(savedCount: Int, activeCount: Int, modifier: Modifier = Modifier) {
+    val filled = MaterialTheme.colorScheme.primary
+    val empty = MaterialTheme.colorScheme.outline
+    Row(
+        modifier = modifier.clearAndSetSemantics {},
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        repeat(MAX_PHOTOS_PER_RECORD_DATE) { index ->
+            val dot = Modifier
+                .size(10.dp)
+                .clip(CircleShape)
+            Box(
+                modifier = when {
+                    index < savedCount -> dot.background(filled)
+                    index < activeCount -> dot.background(filled.copy(alpha = 0.35f))
+                    else -> dot.border(1.5.dp, empty, CircleShape)
+                },
+            )
+        }
     }
 }
 
@@ -170,14 +222,15 @@ private fun EmptyState() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 48.dp),
+            .padding(vertical = 72.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(stringResource(R.string.home_empty_title), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.home_empty_title), style = MaterialTheme.typography.titleLarge)
         Text(
             text = stringResource(R.string.home_empty_body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp),
         )
     }
@@ -185,28 +238,21 @@ private fun EmptyState() {
 
 @Composable
 private fun PhotoCard(photo: Photo, isMissing: Boolean, isResolvingPlace: Boolean, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        PhotoCaption(
+            photo = photo,
+            isResolvingPlace = isResolvingPlace,
+            modifier = Modifier.padding(start = 2.dp, bottom = 8.dp),
+        )
         PhotoImage(
             photo = photo,
             isMissing = isMissing,
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(4f / 3f),
+                .aspectRatio(4f / 3f)
+                .clip(MaterialTheme.shapes.medium)
+                .clickable(onClick = onClick),
         )
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            Text(text = timeCaption(photo), style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = placeLabel(photo, isResolvingPlace),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }
 
@@ -217,15 +263,16 @@ private fun MessageCard(
     onOpenSettings: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 8.dp, bottom = 4.dp)) {
             Text(
                 text = stringResource(message.textRes()),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.padding(end = 8.dp),
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -256,68 +303,70 @@ private fun HomeMessage.textRes(): Int = when (this) {
     HomeMessage.UNEXPECTED_ERROR -> R.string.message_unexpected_error
 }
 
+/** 画面下部のシャッターボタン。写真がボタンの下に潜るよう、背景色へのグラデーションを敷く。 */
 @Composable
-private fun CaptureBar(state: HomeUiState, onCaptureClick: () -> Unit) {
-    Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
-        Button(
-            onClick = onCaptureClick,
+private fun CaptureArea(state: HomeUiState, onCaptureClick: () -> Unit, modifier: Modifier = Modifier) {
+    val background = MaterialTheme.colorScheme.background
+    val status = when {
+        state.captureStatus == CaptureStatus.PREPARING -> stringResource(R.string.home_capture_preparing)
+        state.captureStatus == CaptureStatus.CAMERA_OPEN -> stringResource(R.string.home_capture_camera_open)
+        state.isLimitReached -> stringResource(R.string.home_capture_limit)
+        else -> null
+    }
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                Brush.verticalGradient(
+                    0f to Color.Transparent,
+                    0.35f to background.copy(alpha = 0.92f),
+                    1f to background,
+                ),
+            )
+            .navigationBarsPadding()
+            .padding(top = 36.dp, bottom = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        // 状態の文言が出ても消えてもボタンの位置が動かないよう、行の高さを確保しておく。
+        Text(
+            text = status.orEmpty(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 12.dp),
+        )
+        ShutterButton(
             enabled = state.canCapture,
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(16.dp)
-                .height(56.dp),
-        ) {
-            when {
-                state.captureStatus == CaptureStatus.PREPARING -> {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    Spacer(Modifier.width(12.dp))
-                    Text(stringResource(R.string.home_capture_preparing))
-                }
-                state.captureStatus == CaptureStatus.CAMERA_OPEN ->
-                    Text(stringResource(R.string.home_capture_camera_open))
-                state.isLimitReached -> Text(stringResource(R.string.home_capture_limit))
-                else -> Text(stringResource(R.string.home_capture), style = MaterialTheme.typography.titleMedium)
-            }
-        }
+            busy = state.captureStatus == CaptureStatus.PREPARING,
+            onClick = onCaptureClick,
+        )
     }
 }
 
 @Composable
-private fun PastDatesDialog(
-    dates: List<RecordDateSummary>,
-    onSelect: (LocalDate) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.home_past_records)) },
-        text = {
-            if (dates.isEmpty()) {
-                Text(stringResource(R.string.past_dialog_empty))
-            } else {
-                LazyColumn {
-                    items(dates, key = { it.recordDate.toString() }) { summary ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSelect(summary.recordDate) }
-                                .padding(vertical = 14.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Text(DisplayFormat.date(summary.recordDate), style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                stringResource(R.string.past_dialog_item_count, summary.photoCount),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        HorizontalDivider()
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
-        },
-    )
+private fun ShutterButton(enabled: Boolean, busy: Boolean, onClick: () -> Unit) {
+    val color = MaterialTheme.colorScheme.primary
+    val label = stringResource(R.string.home_capture)
+    Box(
+        modifier = Modifier
+            .size(76.dp)
+            .alpha(if (enabled || busy) 1f else 0.38f)
+            .clip(CircleShape)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = label }
+            .border(3.dp, color, CircleShape)
+            .padding(7.dp)
+            .background(color, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (busy) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(28.dp),
+                color = MaterialTheme.colorScheme.onPrimary,
+                strokeWidth = 2.5.dp,
+            )
+        }
+    }
 }
+
+/** シャッターボタン周り（状態の文言・ボタン・余白）の高さ。一覧の最後の写真が隠れないよう下に空ける。 */
+private val CAPTURE_AREA_HEIGHT = 168.dp

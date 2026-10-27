@@ -29,7 +29,7 @@ import com.hiragi0w0.geopolaroid.location.FusedLocationProvider
 import java.time.LocalDate
 
 /**
- * 画面遷移：ホーム → 撮影 → OSカメラ → ホーム／ホーム → 過去の日付 → 完成地図 → 戻る。
+ * 画面遷移：ホーム → 撮影 → OSカメラ → ホーム／ホーム → 過去の記録 → 完成地図 → 戻る（過去の記録へ）。
  * 04:00 前の記録日は一覧、04:00 を越えた記録日だけ地図で開く。
  */
 @Composable
@@ -79,10 +79,24 @@ fun GeoPolaroidApp(container: AppContainer) {
         }
     }
 
+    var showPastRecords by rememberSaveable { mutableStateOf(false) }
     var openedDate by rememberSaveable { mutableStateOf<String?>(null) }
     val mapDate = openedDate?.let(LocalDate::parse)
 
-    if (mapDate == null) {
+    if (mapDate == null && showPastRecords) {
+        val homeState by home.uiState.collectAsStateWithLifecycle()
+        BackHandler { showPastRecords = false }
+        PastRecordsScreen(
+            dates = homeState.pastDates,
+            onBack = { showPastRecords = false },
+            onSelect = { date ->
+                home.refreshRecordDate()
+                if (RecordDay.isCompleted(date, home.currentRecordDate.value)) {
+                    openedDate = date.toString()
+                }
+            },
+        )
+    } else if (mapDate == null) {
         val homeState by home.uiState.collectAsStateWithLifecycle()
         HomeScreen(
             state = homeState,
@@ -97,12 +111,7 @@ fun GeoPolaroidApp(container: AppContainer) {
                 )
             },
             onDismissMessage = home::dismissMessage,
-            onOpenPastDate = { date ->
-                home.refreshRecordDate()
-                if (RecordDay.isCompleted(date, home.currentRecordDate.value)) {
-                    openedDate = date.toString()
-                }
-            },
+            onOpenPastRecords = { showPastRecords = true },
             onExclude = { home.exclude(it.photoId) },
         )
     } else {

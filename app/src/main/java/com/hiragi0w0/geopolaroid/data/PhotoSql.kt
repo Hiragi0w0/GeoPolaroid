@@ -16,9 +16,13 @@ object PhotoSql {
         "SELECT COUNT(*) FROM photos WHERE recordDate = :recordDate " +
             "AND saveState IN ('PENDING', 'SAVED')"
 
+    /** 記録日ごとの枚数と、表示順で最初の写真（代表写真）の URI。 */
     const val SELECT_SAVED_DATES =
-        "SELECT recordDate, COUNT(*) AS photoCount FROM photos WHERE saveState = 'SAVED' " +
-            "GROUP BY recordDate ORDER BY recordDate DESC"
+        "SELECT d.recordDate AS recordDate, COUNT(*) AS photoCount, " +
+            "(SELECT c.imageUri FROM photos c WHERE c.recordDate = d.recordDate AND c.saveState = 'SAVED' " +
+            "ORDER BY c.requestedAtUtc ASC, c.photoId ASC LIMIT 1) AS coverImageUri " +
+            "FROM photos d WHERE d.saveState = 'SAVED' " +
+            "GROUP BY d.recordDate ORDER BY d.recordDate DESC"
 
     const val SELECT_BY_ID = "SELECT * FROM photos WHERE photoId = :photoId"
 

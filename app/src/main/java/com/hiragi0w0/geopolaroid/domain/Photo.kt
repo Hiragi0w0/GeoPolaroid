@@ -25,10 +25,11 @@ data class Photo(
     val saveState: SaveState,
 )
 
-/** 過去の記録日一覧の1行。 */
+/** 過去の記録日一覧の1行。[coverImageUri] は表示順で最初の写真（代表写真）。 */
 data class RecordDateSummary(
     val recordDate: LocalDate,
     val photoCount: Int,
+    val coverImageUri: String,
 )
 
 /** 表示順（撮影基準時刻の昇順、同時刻は photoId で安定化）。 */

@@ -16,7 +16,7 @@ class RoomPhotoRepository(private val dao: PhotoDao) : PhotoRepository {
 
     override fun observeSavedDates(): Flow<List<RecordDateSummary>> =
         dao.observeSavedDates().map { rows ->
-            rows.map { RecordDateSummary(LocalDate.parse(it.recordDate), it.photoCount) }
+            rows.map { RecordDateSummary(LocalDate.parse(it.recordDate), it.photoCount, it.coverImageUri) }
         }
 
     override suspend fun countActive(recordDate: LocalDate): Int =

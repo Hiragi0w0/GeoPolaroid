@@ -24,9 +24,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -61,6 +63,19 @@ fun PhotoImage(
     )
 }
 
+/** 一覧用の小さな写真。読めない場合は無地のプレースホルダーにする。 */
+@Composable
+fun ThumbnailImage(imageUri: String, modifier: Modifier = Modifier) {
+    SubcomposeAsyncImage(
+        model = imageUri.toUri(),
+        contentDescription = null,
+        modifier = modifier,
+        contentScale = ContentScale.Crop,
+        loading = { PhotoPlaceholder() },
+        error = { PhotoPlaceholder() },
+    )
+}
+
 @Composable
 private fun PhotoPlaceholder(text: String? = null) {
     Box(
@@ -92,6 +107,27 @@ fun placeLabel(photo: Photo, isResolving: Boolean): String = when {
 fun timeCaption(photo: Photo): String =
     stringResource(R.string.photo_time_caption, DisplayFormat.time(photo))
 
+/** 「09:12（カメラ起動時） · 渋谷区」の1行。場所名が長いときは末尾を省略する。 */
+@Composable
+fun PhotoCaption(photo: Photo, isResolvingPlace: Boolean, modifier: Modifier = Modifier) {
+    Row(modifier = modifier) {
+        Text(
+            text = timeCaption(photo),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.alignByBaseline(),
+        )
+        Text(
+            text = " · " + placeLabel(photo, isResolvingPlace),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.alignByBaseline(),
+        )
+    }
+}
+
 /** 写真・撮影時刻・地域名だけのシンプルな閲覧ダイアログ。記録からの除外もここから行う。 */
 @Composable
 fun PhotoViewerDialog(
@@ -112,6 +148,7 @@ fun PhotoViewerDialog(
                 .fillMaxWidth()
                 .padding(16.dp),
             shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 PhotoImage(
@@ -120,14 +157,15 @@ fun PhotoViewerDialog(
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 200.dp, max = 480.dp),
+                        .heightIn(min = 200.dp, max = 480.dp)
+                        .clip(MaterialTheme.shapes.medium),
                 )
-                Spacer(Modifier.padding(top = 12.dp))
-                Text(text = timeCaption(photo), style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.padding(top = 16.dp))
+                Text(text = timeCaption(photo), style = MaterialTheme.typography.labelLarge)
                 Text(
                     text = placeLabel(photo, isResolvingPlace),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(top = 2.dp),
                 )
                 Row(
                     modifier = Modifier

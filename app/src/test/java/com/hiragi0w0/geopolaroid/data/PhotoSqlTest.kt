@@ -103,6 +103,17 @@ class PhotoSqlTest {
     }
 
     @Test
+    fun savedDateCoverIsFirstSavedPhotoInDisplayOrder() {
+        insert("p", "2026-10-21", 1, "PENDING")
+        insert("late", "2026-10-21", 30, "SAVED")
+        insert("b", "2026-10-21", 20, "SAVED")
+        insert("a", "2026-10-21", 20, "SAVED")
+        insert("other", "2026-10-20", 5, "SAVED")
+        val covers = query(PhotoSql.SELECT_SAVED_DATES) { it.getString("recordDate") to it.getString("coverImageUri") }
+        assertEquals(listOf("2026-10-21" to "content://a", "2026-10-20" to "content://other"), covers)
+    }
+
+    @Test
     fun markSavedOnlyAffectsPending() {
         insert("p", "2026-10-22", 1, "PENDING")
         assertEquals(1, update(PhotoSql.MARK_SAVED, "photoId" to "p"))

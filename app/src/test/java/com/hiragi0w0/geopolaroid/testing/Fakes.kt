@@ -58,7 +58,7 @@ class FakePhotoRepository : PhotoRepository {
         rows.map { map ->
             map.values.filter { it.saveState == SaveState.SAVED }
                 .groupBy { it.recordDate }
-                .map { (date, list) -> RecordDateSummary(date, list.size) }
+                .map { (date, list) -> RecordDateSummary(date, list.size, list.minWith(PhotoDisplayOrder).imageUri) }
                 .sortedByDescending { it.recordDate }
         }
 

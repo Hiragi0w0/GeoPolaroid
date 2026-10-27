@@ -27,6 +27,7 @@ data class PhotoEntity(
 data class SavedDateRow(
     val recordDate: String,
     val photoCount: Int,
+    val coverImageUri: String,
 )
 
 fun PhotoEntity.toDomain(): Photo = Photo(
