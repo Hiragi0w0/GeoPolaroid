@@ -13,6 +13,27 @@ Android 標準カメラで位置付き写真を1記録日につき最大12枚撮
 
    キー未設定でもアプリは動作し、完成地図の代わりに写真一覧を表示する。キーには「Android アプリ」制限と「Maps SDK for Android」への API 制限をかけること。
 
+## release 版の署名
+
+鍵ファイルとパスワードはリポジトリに含めない（`*.jks` / `*.keystore` / `local.properties` は `.gitignore` 済み）。
+
+1. Android Studio の「Build → Generate Signed App Bundle / APK → APK → Create new...」で鍵（`.jks`）を作る。保存先はリポジトリの外を推奨。
+2. `local.properties` に4項目を書く。`RELEASE_STORE_FILE` は絶対パスか、プロジェクトのルートからの相対パス。
+
+   ```properties
+   RELEASE_STORE_FILE=/path/to/geopolaroid-release.jks
+   RELEASE_STORE_PASSWORD=...
+   RELEASE_KEY_ALIAS=...
+   RELEASE_KEY_PASSWORD=...
+   ```
+
+3. `./gradlew :app:assembleRelease` で `app/build/outputs/apk/release/app-release.apk` ができる。
+
+- 4項目すべて未設定なら、release 版は署名なしでビルドされる（インストールはできない）。一部だけ設定した場合と鍵ファイルが見つからない場合はビルドを止める。
+- 鍵を失うと同じアプリとして上書き更新できなくなり、アンインストールすると記録（DB）は戻らない。鍵ファイルとパスワードはリポジトリの外にもバックアップすること。
+- debug 版と release 版は署名が違うため、切り替えるときはアンインストールが必要になる。
+- Maps API キーに「Android アプリ」制限をかけている場合は、release 鍵の SHA-1（`./gradlew signingReport` で確認）も登録する。
+
 ## 構成
 
 ```
