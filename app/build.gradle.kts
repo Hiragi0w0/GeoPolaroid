@@ -13,6 +13,28 @@ val localProperties = Properties().apply {
 }
 val mapsApiKey: String = localProperties.getProperty("MAPS_API_KEY").orEmpty()
 
+// release 署名の鍵ファイルとパスワードも local.properties から読み込む（リポジトリには含めない）。
+// 4項目すべて未設定なら署名なしの release ビルドになる。一部だけの設定は誤りとして止める。
+val releaseSigningKeys = listOf(
+    "RELEASE_STORE_FILE",
+    "RELEASE_STORE_PASSWORD",
+    "RELEASE_KEY_ALIAS",
+    "RELEASE_KEY_PASSWORD",
+)
+val releaseSigning: Map<String, String> = releaseSigningKeys
+    .mapNotNull { key -> localProperties.getProperty(key)?.takeIf { it.isNotBlank() }?.let { key to it } }
+    .toMap()
+if (releaseSigning.isNotEmpty() && releaseSigning.size < releaseSigningKeys.size) {
+    throw GradleException(
+        "local.properties の release 署名設定が不足しています: " +
+            releaseSigningKeys.filterNot { it in releaseSigning }.joinToString(),
+    )
+}
+val releaseStoreFile = releaseSigning["RELEASE_STORE_FILE"]?.let { rootProject.file(it) }
+if (releaseStoreFile != null && !releaseStoreFile.isFile) {
+    throw GradleException("RELEASE_STORE_FILE の鍵ファイルが見つかりません: $releaseStoreFile")
+}
+
 android {
     namespace = "com.hiragi0w0.geopolaroid"
     compileSdk {
@@ -33,8 +55,22 @@ android {
         buildConfigField("boolean", "HAS_MAPS_API_KEY", mapsApiKey.isNotBlank().toString())
     }
 
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = releaseStoreFile
+                storePassword = releaseSigning.getValue("RELEASE_STORE_PASSWORD")
+                keyAlias = releaseSigning.getValue("RELEASE_KEY_ALIAS")
+                keyPassword = releaseSigning.getValue("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (releaseStoreFile != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
