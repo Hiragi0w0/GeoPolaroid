@@ -63,6 +63,15 @@ data class RouteMapModel(
     val polyline: List<GeoPoint>,
     val bounds: GeoBounds?,
 ) {
+    /**
+     * [photoId] の写真と完全に同じ座標にある写真（その写真自身を含む、撮影順）。
+     * 重なったピンは分離しないので、カードの中で切り替えて全写真に到達できるようにする。
+     */
+    fun photosAtSameSpot(photoId: String): List<Photo> {
+        val target = pins.firstOrNull { it.photoId == photoId } ?: return emptyList()
+        return pins.filter { it.latitude == target.latitude && it.longitude == target.longitude }
+    }
+
     companion object {
         fun from(photos: List<Photo>): RouteMapModel {
             val ordered = photos.filter { it.saveState == SaveState.SAVED }.sortedWith(PhotoDisplayOrder)

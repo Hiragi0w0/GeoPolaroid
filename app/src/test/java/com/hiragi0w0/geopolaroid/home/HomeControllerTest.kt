@@ -202,7 +202,7 @@ class HomeControllerTest {
         runCurrent()
         c.onCameraLaunchFailed(c.cameraRequest.value!!.photoId)
         runCurrent()
-        assertEquals(HomeMessage.CAMERA_NOT_FOUND, c.state().message)
+        assertEquals(HomeMessage.CAMERA_UNAVAILABLE, c.state().message)
         assertTrue(repository.all.isEmpty())
         assertTrue(c.state().canCapture)
     }
@@ -445,5 +445,55 @@ class HomeControllerTest {
         runCurrent()
         assertTrue(c.state().photos.isEmpty())
         assertTrue(c.state().missingPhotoIds.isEmpty())
+    }
+
+    // アプリ内カメラ：「OK」で一時ファイルを原本に書き込み、シャッター時刻で保存する
+    @Test
+    fun photoTakenInAppIsWrittenAndSavedWithShutterTime() = runTest {
+        val store = InMemoryActiveCaptureStore()
+        val c = controller(store)
+        c.startCapture()
+        runCurrent()
+        val request = checkNotNull(c.cameraRequest.value)
+        assertEquals(33.5902, request.latitude, 0.0)
+        assertTrue(c.consumeCameraRequest(request))
+
+        val shutter = LocalDateTime.parse("2026-10-22T10:31:05").atZone(zone).toInstant().toEpochMilli()
+        c.onPhotoTaken("/cache/capture/shot.jpg", shutter)
+        runCurrent()
+
+        assertEquals(listOf("/cache/capture/shot.jpg"), media.consumedCaptureFiles)
+        val saved = c.state().photos.single()
+        assertEquals(shutter, saved.requestedAtUtc)
+        assertEquals(CaptureStatus.IDLE, c.state().captureStatus)
+        assertNull(store.activePhotoId)
+        assertNull(c.state().message)
+    }
+
+    @Test
+    fun failedWriteOfInAppPhotoShowsFailureAndFreesSlot() = runTest {
+        val c = controller()
+        c.startCapture()
+        runCurrent()
+        assertTrue(c.consumeCameraRequest(checkNotNull(c.cameraRequest.value)))
+        media.failWriteCapture = true
+
+        c.onPhotoTaken("/cache/capture/shot.jpg", 0L)
+        runCurrent()
+
+        assertEquals(HomeMessage.CAPTURE_FAILED, c.state().message)
+        assertEquals(0, c.state().activeCount)
+        assertTrue(media.items.isEmpty()) // 空の項目も残さない
+        assertTrue(c.state().canCapture)
+    }
+
+    @Test
+    fun cameraPermissionDeniedIsRetryable() = runTest {
+        val c = controller()
+        c.onCameraPermissionDenied()
+        runCurrent()
+        assertEquals(HomeMessage.CAMERA_PERMISSION_DENIED, c.state().message)
+        assertTrue(c.state().message!!.retryable)
+        assertTrue(repository.all.isEmpty())
     }
 }

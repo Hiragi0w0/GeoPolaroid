@@ -23,4 +23,12 @@ class DisplayFormatTest {
     fun dateIsJapaneseWithWeekday() {
         assertEquals("2026年10月22日(木)", DisplayFormat.date(LocalDate.parse("2026-10-22")))
     }
+
+    @Test
+    fun stampUsesCalendarDateAndTimeAtCapture() {
+        assertEquals("2026.10.22  10:05", DisplayFormat.stamp(instant, "Asia/Tokyo"))
+        // 04:00 前の写真は記録日（前日）ではなく撮影した暦日を表示する
+        val earlyMorning = Instant.parse("2026-10-22T17:30:00Z").toEpochMilli()
+        assertEquals("2026.10.23  02:30", DisplayFormat.stamp(earlyMorning, "Asia/Tokyo"))
+    }
 }

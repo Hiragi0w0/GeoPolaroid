@@ -22,6 +22,9 @@ interface PhotoRepository {
 
     /** PENDING → SAVED。対象が PENDING でなければ false。 */
     suspend fun markSaved(photoId: String): Boolean
+
+    /** PENDING → SAVED にし、撮影時刻と記録日をシャッター時点のものに置き換える。対象が PENDING でなければ false。 */
+    suspend fun markSavedAt(photoId: String, capturedAtUtc: Long, recordDate: LocalDate): Boolean
     suspend fun updatePlaceName(photoId: String, placeName: String)
 
     /** PENDING 行の取り消し。SAVED 行には作用しない。 */
@@ -56,9 +59,15 @@ enum class MediaCheck {
     UNVERIFIABLE,
 }
 
-/** MediaStore への写真原本の作成・検査・削除。URI は文字列で扱う。 */
+/** MediaStore への写真原本の作成・書き込み・検査・削除。URI は文字列で扱う。 */
 interface MediaGateway {
     suspend fun createCaptureUri(displayName: String): String?
+
+    /**
+     * アプリ内カメラが一時ファイルに撮った写真を、[createCaptureUri] で作った項目へ書き込む。
+     * 成否にかかわらず一時ファイルは消す。書き込めたら true。
+     */
+    suspend fun writeCapture(uri: String, sourcePath: String): Boolean
     suspend fun inspect(uri: String): MediaCheck
     suspend fun delete(uri: String): Boolean
 }

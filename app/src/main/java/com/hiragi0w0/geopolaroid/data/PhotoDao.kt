@@ -43,6 +43,9 @@ abstract class PhotoDao {
     @Query(PhotoSql.MARK_SAVED)
     abstract suspend fun markSaved(photoId: String): Int
 
+    @Query(PhotoSql.MARK_SAVED_AT)
+    abstract suspend fun markSavedAt(photoId: String, capturedAtUtc: Long, recordDate: String): Int
+
     @Query(PhotoSql.UPDATE_PLACE_NAME)
     abstract suspend fun updatePlaceName(photoId: String, placeName: String): Int
 

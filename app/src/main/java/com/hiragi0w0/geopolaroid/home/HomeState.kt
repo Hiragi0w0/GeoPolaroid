@@ -11,8 +11,9 @@ enum class HomeMessage(val retryable: Boolean = false) {
     LIMIT_REACHED,
     LOCATION_PERMISSION_DENIED(retryable = true),
     LOCATION_UNAVAILABLE(retryable = true),
+    CAMERA_PERMISSION_DENIED(retryable = true),
     STORAGE_UNAVAILABLE,
-    CAMERA_NOT_FOUND,
+    CAMERA_UNAVAILABLE,
     CAPTURE_CANCELLED,
     CAPTURE_FAILED,
     CAPTURE_UNVERIFIED,
@@ -20,8 +21,13 @@ enum class HomeMessage(val retryable: Boolean = false) {
     UNEXPECTED_ERROR,
 }
 
-/** OSカメラに渡す保存先。UI が1回だけ消費する。 */
-data class CameraRequest(val photoId: String, val imageUri: String)
+/** アプリ内カメラを開く要求。UI が1回だけ消費する。座標は写真の位置情報（EXIF）に書き込む。 */
+data class CameraRequest(
+    val photoId: String,
+    val imageUri: String,
+    val latitude: Double,
+    val longitude: Double,
+)
 
 data class HomeUiState(
     val isLoading: Boolean,

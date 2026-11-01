@@ -5,6 +5,9 @@
     <!-- 撮影時の前景位置情報のみ。バックグラウンド位置情報は要求しない。 -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- アプリ内カメラ。カメラのない端末にもインストールはできる（撮影時にカメラを起動できない旨を表示）。 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
     <!-- 地図タイル取得用 -->
     <uses-permission android:name="android.permission.INTERNET" />
 

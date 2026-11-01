@@ -120,4 +120,20 @@ class RouteMapModelTest {
         assertEquals(listOf("a", "c"), after.pins.map { it.photoId })
         assertEquals(listOf(1.0, 3.0), after.polyline.map { it.latitude })
     }
+
+    // T09：重なったピンはカード内で切り替える
+    @Test
+    fun photosAtSameSpotAreGroupedInCaptureOrder() {
+        val model = RouteMapModel.from(
+            listOf(
+                photo("b", at = 2_000, lat = 33.0, lng = 130.0),
+                photo("x", at = 1_500, lat = 33.0, lng = 130.0001),
+                photo("a", at = 1_000, lat = 33.0, lng = 130.0),
+                photo("c", at = 3_000, lat = 33.0, lng = 130.0),
+            ),
+        )
+        assertEquals(listOf("a", "b", "c"), model.photosAtSameSpot("b").map { it.photoId })
+        assertEquals(listOf("x"), model.photosAtSameSpot("x").map { it.photoId })
+        assertTrue(model.photosAtSameSpot("missing").isEmpty())
+    }
 }

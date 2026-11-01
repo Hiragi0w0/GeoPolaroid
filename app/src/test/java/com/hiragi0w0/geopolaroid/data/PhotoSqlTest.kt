@@ -157,4 +157,21 @@ class PhotoSqlTest {
         assertEquals(listOf("福岡市"), place)
         assertEquals(emptyList<String>(), query(PhotoSql.SELECT_BY_ID, "photoId" to "none") { it.getString(1) })
     }
+
+    @Test
+    fun markSavedAtReplacesTimeAndDateOnlyForPending() {
+        insert("p", "2026-10-22", 1, "PENDING")
+        insert("s", "2026-10-22", 2, "SAVED")
+        val args = arrayOf("capturedAtUtc" to 99L, "recordDate" to "2026-10-23")
+        assertEquals(0, update(PhotoSql.MARK_SAVED_AT, "photoId" to "s", *args))
+        assertEquals(1, update(PhotoSql.MARK_SAVED_AT, "photoId" to "p", *args))
+        assertEquals(0, update(PhotoSql.MARK_SAVED_AT, "photoId" to "p", *args))
+        assertEquals(
+            listOf("p" to 99L),
+            query(PhotoSql.SELECT_SAVED_BY_DATE, "recordDate" to "2026-10-23") {
+                it.getString("photoId") to it.getLong("requestedAtUtc")
+            },
+        )
+        assertEquals(1, countActive("2026-10-22"))
+    }
 }

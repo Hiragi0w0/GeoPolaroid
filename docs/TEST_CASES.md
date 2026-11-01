@@ -1,9 +1,11 @@
-# V0 テストケースと検証結果
+# テストケースと検証結果
 
-設計書「新V0 詳細設計 v0.2｜端末内完結・04:00完成地図」9章（T01〜T12）と5〜7章から洗い出したテストケース。
+当初の設計書「新V0 詳細設計 v0.2」9章（T01〜T12）と5〜7章から洗い出したテストケースに、
+2026-10-27 に基準を「総合仕様書 v1.1」の端末内部分へ移したときの追加分（アプリ内カメラ・ポラロイドカード・画像保存）を加えたもの。
+表の「仕様」列の章番号は v0.2 のもの、「v1.1」と書いたものは総合仕様書 v1.1 の章。
 
 - **自動**: `app/src/test` の JVM ユニットテスト（`./gradlew :app:testDebugUnitTest`）
-- **実機**: エミュレーター／実機での手動確認が必要な項目（外部カメラアプリ・MediaStore・地図SDKの実挙動）
+- **実機**: エミュレーター／実機での手動確認が必要な項目（CameraX・MediaStore・地図SDKの実挙動）
 
 ## 自動テスト
 
@@ -80,6 +82,21 @@
 | 6章-5 | 地図画面にも地名取得中の状態を反映 | `placeNameResolvingStateIsPropagated` | resolvingPlaceIds |
 | 6章-6 | 空項目を削除できなかったときは PENDING 行を残し、次回の復旧で再試行（原本が元から無ければ行を消す） | `cancelKeepsRowWhenEmptyItemCannotBeDeleted` / `failedSaveKeepsRowWhenEmptyItemCannotBeDeleted` / `recoveryKeepsRowWhenEmptyItemCannotBeDeleted` / `missingItemRowIsRemovedEvenThoughDeleteReportsNothing` | 参照されない空項目を残さない |
 | 6章-6 | 片付けが途中で止まっても行が残り、次回の復旧で片付く（原本→行の順） | `CaptureCoordinatorTest.interruptedCleanupKeepsRowSoRecoveryCanFinishIt` / `interruptedRecoveryDiscardKeepsRow` | PENDING 行が残る |
+| v1.1 4.1 | シャッター時刻で撮影時刻と記録日を決める（03:59 にカメラを開き 04:00 過ぎに撮影 → 新しい記録日） | `CaptureCoordinatorTest.shutterTimeReplacesCameraOpenTimeAndDecidesRecordDate` / `shutterInsideSameRecordDateOnlyUpdatesTime` | 撮影時刻はシャッター時刻 |
+| v1.1 4.2 | 移る先の記録日がすでに12枚なら、カメラを開いた時点の時刻と記録日のまま保存 | `movingIntoFullRecordDateKeepsCameraOpenTimeToRespectLimit` | 上限を超えない |
+| v1.1 5.2 | カメラを開く要求に撮影地点を含める（EXIF 用） | `readyCarriesLocationForExif` / `HomeControllerTest.photoTakenInAppIsWrittenAndSavedWithShutterTime` | 座標が渡る |
+| v1.1 5.3 | 「OK」で一時ファイルを原本へ書き込み、シャッター時刻で保存 | `HomeControllerTest.photoTakenInAppIsWrittenAndSavedWithShutterTime` | 一時ファイルを消費、SAVED 1件 |
+| v1.1 5.3 | 原本へ書き込めなければ保存失敗を表示し、枠と空項目を返す | `failedWriteOfInAppPhotoShowsFailureAndFreesSlot` | CAPTURE_FAILED、行・項目 0 件 |
+| v1.1 5.1 | カメラの権限拒否は設定・再試行できるメッセージ | `cameraPermissionDeniedIsRetryable` | 行 0 件 |
+| v1.1 5.3 | SQL：シャッター時刻・記録日への置き換えは PENDING だけ | `PhotoSqlTest.markSavedAtReplacesTimeAndDateOnlyForPending` | SAVED 行は変わらない |
+| v1.1 6.1 | 同じ座標の写真を撮影順にまとめる（わずかにずれた座標は別） | `RouteMapModelTest.photosAtSameSpotAreGroupedInCaptureOrder` | カード内で切り替え |
+| v1.1 6.2 | カードの日時は撮影した暦日（04:00 前の写真は記録日の翌日） | `DisplayFormatTest.stampUsesCalendarDateAndTimeAtCapture` | 「2026.10.23  02:30」 |
+| 画像保存 | 地図が使えないときの略図：枠に収め、縦横同縮尺・北が上、日付変更線は短い側 | `RouteSketchTest` | 余白内に配置 |
+
+### 実行結果（2026-10-27）
+
+- 105 件すべて成功（`./gradlew :app:testDebugUnitTest`）。Android Studio 同梱の JDK で、デバッグ／リリース（R8）ビルドと lint（エラー 0 件）も通過。
+- 実機での確認は未実施（下の表のアプリ内カメラ・カード・画像保存の項目を含む）。
 
 ### 実行結果（2026-10-22）
 
@@ -92,14 +109,19 @@
 | 仕様 | 手順 | 期待結果 |
 |---|---|---|
 | T01 | 初回起動 | 記録日・「0 / 12 枚」・空状態・撮影ボタン・過去の記録ボタン |
-| T02 | 位置情報を許可して撮影 | 一覧に写真・時刻（カメラ起動時）・地名（取得中→地名）。写真アプリの Pictures/GeoPolaroid に1枚 |
-| T03 | カメラで戻る／キャンセル | 一覧・枚数は変わらず、写真アプリに空の項目が残らない |
+| T02 | 位置情報・カメラを許可して撮影 →「OK」 | 一覧に写真・シャッター時刻・地名（取得中→地名）。写真アプリの Pictures/GeoPolaroid に3:4の写真が1枚、位置情報（EXIF）付き |
+| T03 | カメラを閉じる／戻る、撮影後に「やり直す」 | 一覧・枚数は変わらず、写真アプリに空の項目が残らない。やり直した写真は残らない |
+| v1.1 5.1 | カメラ画面 | 正方形の構図ガイド、「n / 12 枚目」、位置情報を取得済みの表示。撮影後に「OK／やり直す」 |
+| v1.1 5.1 | カメラの権限を拒否 | カメラは開かず、設定を開く・再試行を表示 |
+| v1.1 5.3 | 撮影後の確認画面でプロセスを終了して戻る | 確認画面から続けられ、「OK」で1件だけ保存 |
 | T04 | 12枚撮影 | ボタンが無効「この記録日は12枚に達しました」。写真を開き「記録から外す」で再び撮影可能 |
 | T05 | 位置情報を拒否／端末の位置情報をオフ | カメラは起動せず、再試行・設定を開くを表示 |
 | T06 | 機内モードで撮影 | 写真は保存、「場所名を取得できませんでした」 |
 | T07 | 端末時刻を 03:59 → 04:00 に、またはアプリをバックグラウンドから復帰 | 前日の記録が「過去の記録」に移り、地図で開ける |
 | T08 | 1枚／複数枚の日を開く | 1枚はピンのみ、複数はピン＋直線 |
-| T09 | ピンをタップ／同位置に複数撮影 | 写真・時刻・地名のダイアログ。重なったピンは下の一覧から開ける |
+| T09 | ピンをタップ／同位置に複数撮影 | 正方形の写真と日時・地名のポラロイドカード。同じ座標の写真はカード内で左右に切り替えられ、下の一覧からも開ける |
+| 画像保存 | 完成地図の右上のボタン → 共有 | 地図・記録日・枚数・地名・サムネイルの1枚が Pictures/GeoPolaroid Maps に保存され、共有シートが開く。キー未設定時は略図になる |
+| 地図 | 完成地図をライト／ダークで開く | 地図がセピア調、ピンは縁取りのある丸 |
 | T10 | 地図画面で写真を除外 | ピンと線から消える。写真アプリの原本は残る |
 | T11 | カメラ起動中にプロセスを終了（開発者オプション「アクティビティを保持しない」等）して撮影→戻る | 写真が SAVED として1件だけ表示 |
 | 6章-6 | 撮影中にカメラアプリを強制終了するなどで途中まで書かれたファイルを作り、アプリを再起動 | 画像データまで読めないファイルは SAVED にせず片付ける（縮小デコードで検査） |

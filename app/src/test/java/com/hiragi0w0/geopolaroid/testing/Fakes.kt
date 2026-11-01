@@ -89,6 +89,12 @@ class FakePhotoRepository : PhotoRepository {
         return true
     }
 
+    override suspend fun markSavedAt(photoId: String, capturedAtUtc: Long, recordDate: LocalDate): Boolean {
+        val photo = rows.value[photoId]?.takeIf { it.saveState == SaveState.PENDING } ?: return false
+        put(photo.copy(saveState = SaveState.SAVED, requestedAtUtc = capturedAtUtc, recordDate = recordDate))
+        return true
+    }
+
     override suspend fun updatePlaceName(photoId: String, placeName: String) {
         rows.value[photoId]?.let { put(it.copy(placeName = placeName)) }
     }
@@ -124,9 +130,22 @@ class FakeMediaGateway : MediaGateway {
         return uri
     }
 
-    /** OSカメラが書き込んだことにする。 */
+    /** 原本が書き込まれたことにする。 */
     fun write(uri: String, check: MediaCheck = MediaCheck.VALID) {
         items[uri] = check
+    }
+
+    /** [writeCapture] が書き込みに失敗する状況を模擬する。 */
+    var failWriteCapture = false
+
+    /** [writeCapture] に渡された一時ファイル（書き込み後に消されたもの）。 */
+    val consumedCaptureFiles = mutableListOf<String>()
+
+    override suspend fun writeCapture(uri: String, sourcePath: String): Boolean {
+        consumedCaptureFiles += sourcePath
+        if (failWriteCapture || uri !in items) return false
+        items[uri] = MediaCheck.VALID
+        return true
     }
 
     override suspend fun inspect(uri: String): MediaCheck = items[uri] ?: MediaCheck.MISSING

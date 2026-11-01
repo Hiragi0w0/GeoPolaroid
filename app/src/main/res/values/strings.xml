@@ -14,11 +14,12 @@
     <string name="home_capture_limit">この記録日は12枚に達しました</string>
 
     <!-- 写真 -->
-    <string name="photo_time_caption">%1$s（カメラ起動時）</string>
+    <string name="photo_time_caption">%1$s</string>
     <string name="photo_place_resolving">場所名を取得中…</string>
     <string name="photo_place_failed">場所名を取得できませんでした</string>
     <string name="photo_missing">元写真が見つかりません</string>
     <string name="photo_content_description">%1$s に撮影した写真</string>
+    <string name="photo_page">同じ場所の写真 %2$d枚中%1$d枚目</string>
     <string name="photo_exclude">記録から外す</string>
     <string name="photo_exclude_confirm_title">記録から外しますか？</string>
     <string name="photo_exclude_confirm_body">この記録からは消えますが、元の写真は端末の写真ライブラリに残ります。</string>
@@ -35,13 +36,28 @@
     <string name="map_unavailable_title">地図を表示できません</string>
     <string name="map_unavailable_body">Maps APIキー（MAPS_API_KEY）が設定されていません。写真は下の一覧から見られます。</string>
     <string name="map_empty">この日の写真はありません。</string>
+    <string name="map_save">地図を画像で保存</string>
+    <string name="map_saved">画像を写真ライブラリに保存しました</string>
+    <string name="map_save_failed">画像を保存できませんでした。もう一度お試しください。</string>
+    <string name="poster_summary">%1$d枚の写真</string>
+
+    <!-- カメラ -->
+    <string name="camera_counter">%1$d / %2$d 枚目</string>
+    <string name="camera_location_ready">位置情報を取得済み</string>
+    <string name="camera_guide_note">枠の中がポラロイドに写ります</string>
+    <string name="camera_shutter">シャッター</string>
+    <string name="camera_retake">やり直す</string>
+    <string name="camera_use">OK</string>
+    <string name="camera_capture_failed">撮影できませんでした。もう一度お試しください。</string>
+    <string name="camera_preview_description">撮影した写真</string>
 
     <!-- メッセージ -->
     <string name="message_limit_reached">この記録日は12枚に達しました。写真を記録から外すと再び撮影できます。</string>
     <string name="message_location_permission_denied">撮影には位置情報の許可が必要です。</string>
     <string name="message_location_unavailable">現在地を取得できませんでした。位置情報がオンになっているか確認して、もう一度お試しください。</string>
     <string name="message_storage_unavailable">写真の保存先を用意できませんでした。端末の空き容量を確認してください。</string>
-    <string name="message_camera_not_found">カメラアプリが見つかりませんでした。</string>
+    <string name="message_camera_permission_denied">撮影にはカメラの許可が必要です。</string>
+    <string name="message_camera_unavailable">カメラを起動できませんでした。</string>
     <string name="message_capture_cancelled">撮影をキャンセルしました。</string>
     <string name="message_capture_failed">写真を保存できませんでした。もう一度お試しください。</string>
     <string name="message_capture_unverified">写真を確認できませんでした。次回起動時に再確認します。</string>
@@ -54,4 +70,5 @@
     <string name="action_close">閉じる</string>
     <string name="action_cancel">キャンセル</string>
     <string name="action_back">戻る</string>
+    <string name="action_share">共有</string>
 </resources>

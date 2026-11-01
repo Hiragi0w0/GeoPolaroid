@@ -47,3 +47,8 @@ val BrickDarkContainer = Color(0xFF6B3A2C)
 val OutlineDark = Color(0xFF8E816F)
 val OutlineVariantDark = Color(0xFF4A4136)
 val ErrorLight = Color(0xFFF2AC9C)
+
+// ポラロイドの台紙。実物のように、ライト・ダークどちらでも明るい紙にセピアのインクで書く。
+val PolaroidPaper = Color(0xFFFBF8F1)
+val PolaroidInk = SepiaInk
+val PolaroidInkVariant = SepiaInkVariant

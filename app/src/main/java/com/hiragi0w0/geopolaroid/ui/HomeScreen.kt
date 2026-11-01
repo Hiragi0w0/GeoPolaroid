@@ -132,9 +132,10 @@ fun HomeScreen(
     val viewingPhoto = state.photos.firstOrNull { it.photoId == viewingPhotoId }
     if (viewingPhoto != null) {
         PhotoViewerDialog(
-            photo = viewingPhoto,
-            isMissing = viewingPhoto.photoId in state.missingPhotoIds,
-            isResolvingPlace = viewingPhoto.photoId in state.resolvingPlaceIds,
+            photos = listOf(viewingPhoto),
+            initialPhotoId = viewingPhoto.photoId,
+            missingPhotoIds = state.missingPhotoIds,
+            resolvingPlaceIds = state.resolvingPlaceIds,
             onDismiss = { viewingPhotoId = null },
             onExclude = {
                 viewingPhotoId = null
@@ -278,7 +279,9 @@ private fun MessageCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
             ) {
-                if (message == HomeMessage.LOCATION_PERMISSION_DENIED) {
+                if (message == HomeMessage.LOCATION_PERMISSION_DENIED ||
+                    message == HomeMessage.CAMERA_PERMISSION_DENIED
+                ) {
                     TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.action_open_settings)) }
                 }
                 if (message.retryable) {
@@ -294,8 +297,9 @@ private fun HomeMessage.textRes(): Int = when (this) {
     HomeMessage.LIMIT_REACHED -> R.string.message_limit_reached
     HomeMessage.LOCATION_PERMISSION_DENIED -> R.string.message_location_permission_denied
     HomeMessage.LOCATION_UNAVAILABLE -> R.string.message_location_unavailable
+    HomeMessage.CAMERA_PERMISSION_DENIED -> R.string.message_camera_permission_denied
     HomeMessage.STORAGE_UNAVAILABLE -> R.string.message_storage_unavailable
-    HomeMessage.CAMERA_NOT_FOUND -> R.string.message_camera_not_found
+    HomeMessage.CAMERA_UNAVAILABLE -> R.string.message_camera_unavailable
     HomeMessage.CAPTURE_CANCELLED -> R.string.message_capture_cancelled
     HomeMessage.CAPTURE_FAILED -> R.string.message_capture_failed
     HomeMessage.CAPTURE_UNVERIFIED -> R.string.message_capture_unverified

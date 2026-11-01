@@ -12,6 +12,7 @@ import com.hiragi0w0.geopolaroid.domain.SaveState
 import com.hiragi0w0.geopolaroid.domain.TimeSource
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
+import java.time.DateTimeException
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -22,7 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * 撮影・保存シーケンス（設計書 6章）を担う。Android API には依存しない。
  *
  * 1. [prepare]: 件数確認 → 現在地取得 → MediaStore URI 作成 → PENDING 行登録
- * 2. OSカメラ（呼び出し側）
+ * 2. アプリ内カメラで撮影し、確認後に原本を書き込む（呼び出し側）
  * 3. [complete]: 画像を検査して SAVED にするか、PENDING と空の項目を片付ける
  * 4. [recoverPending]: 途中終了で残った PENDING を起動時に再確認する
  *
@@ -39,7 +40,12 @@ class CaptureCoordinator(
     private val preparing = AtomicBoolean(false)
 
     sealed interface PrepareResult {
-        data class Ready(val photoId: String, val imageUri: String) : PrepareResult
+        data class Ready(
+            val photoId: String,
+            val imageUri: String,
+            val latitude: Double,
+            val longitude: Double,
+        ) : PrepareResult
         data object Busy : PrepareResult
         data object LimitReached : PrepareResult
         data object LocationPermissionDenied : PrepareResult
@@ -50,10 +56,10 @@ class CaptureCoordinator(
     enum class CompleteResult {
         SAVED,
 
-        /** ユーザーによるキャンセル（カメラが false を返した）。 */
+        /** ユーザーによるキャンセル（撮らずにカメラを閉じた）。 */
         CANCELLED,
 
-        /** カメラは成功を返したが画像が空・欠落していた。 */
+        /** 撮影できたはずなのに画像が空・欠落していた。 */
         FAILED,
 
         /** 画像を検査できなかったため PENDING のまま残した（次回起動時に再確認）。 */
@@ -83,7 +89,7 @@ class CaptureCoordinator(
                 LocationResult.Unavailable -> return PrepareResult.LocationUnavailable
             }
 
-            // 位置取得後、カメラ起動直前の時刻を基準時刻とする。
+            // 位置取得後、カメラを開く直前の時刻を仮の撮影時刻とする（保存時にシャッター時刻へ置き換える）。
             val requestedAt = timeSource.now()
             val zone = timeSource.zone()
             val photoId = idGenerator()
@@ -124,14 +130,26 @@ class CaptureCoordinator(
             mediaGateway.delete(imageUri)
             return PrepareResult.LimitReached
         }
-        return PrepareResult.Ready(photoId, imageUri)
+        return PrepareResult.Ready(photoId, imageUri, location.latitude, location.longitude)
     }
 
-    suspend fun complete(photoId: String, cameraReportedSuccess: Boolean): CompleteResult =
+    /**
+     * 撮影を終える。[capturedAt] はシャッター時刻で、保存できたら撮影時刻と記録日をこの時点のものにする
+     * （03:59 にカメラを開いて 04:01 に撮った写真は新しい記録日に入る）。
+     */
+    suspend fun complete(
+        photoId: String,
+        cameraReportedSuccess: Boolean,
+        capturedAt: Instant? = null,
+    ): CompleteResult =
         // 片付けの途中で中断されると、参照されない空項目が残るため中断させない。
-        withContext(NonCancellable) { completeInternal(photoId, cameraReportedSuccess) }
+        withContext(NonCancellable) { completeInternal(photoId, cameraReportedSuccess, capturedAt) }
 
-    private suspend fun completeInternal(photoId: String, cameraReportedSuccess: Boolean): CompleteResult {
+    private suspend fun completeInternal(
+        photoId: String,
+        cameraReportedSuccess: Boolean,
+        capturedAt: Instant?,
+    ): CompleteResult {
         val photo = repository.findById(photoId)
         if (photo == null || photo.saveState != SaveState.PENDING) {
             return CompleteResult.ALREADY_HANDLED
@@ -140,7 +158,7 @@ class CaptureCoordinator(
         if (cameraReportedSuccess) {
             return when (check) {
                 MediaCheck.VALID -> {
-                    if (repository.markSaved(photoId)) CompleteResult.SAVED
+                    if (markSaved(photo, capturedAt)) CompleteResult.SAVED
                     else CompleteResult.ALREADY_HANDLED
                 }
                 MediaCheck.EMPTY_OR_BROKEN, MediaCheck.MISSING -> {
@@ -157,6 +175,26 @@ class CaptureCoordinator(
             repository.deletePending(photoId)
         }
         return CompleteResult.CANCELLED
+    }
+
+    /**
+     * シャッター時刻で保存する。シャッターまでに 04:00 を越えて記録日が変わり、移る先の記録日がすでに
+     * 上限に達している場合だけは、上限を守るためカメラを開いた時点の時刻と記録日のまま保存する。
+     */
+    private suspend fun markSaved(photo: Photo, capturedAt: Instant?): Boolean {
+        if (capturedAt == null) return repository.markSaved(photo.photoId)
+        val zone = try {
+            ZoneId.of(photo.zoneId)
+        } catch (e: DateTimeException) {
+            return repository.markSaved(photo.photoId)
+        }
+        val recordDate = RecordDay.recordDateOf(capturedAt, zone)
+        if (recordDate != photo.recordDate &&
+            repository.countActive(recordDate) >= MAX_PHOTOS_PER_RECORD_DATE
+        ) {
+            return repository.markSaved(photo.photoId)
+        }
+        return repository.markSavedAt(photo.photoId, capturedAt.toEpochMilli(), recordDate)
     }
 
     /**

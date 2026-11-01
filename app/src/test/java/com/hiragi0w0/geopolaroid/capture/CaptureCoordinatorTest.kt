@@ -345,4 +345,55 @@ class CaptureCoordinatorTest {
         assertEquals(CompleteResult.ALREADY_HANDLED, coordinator.complete(ready.photoId, false))
         assertEquals(1, repository.saved().size)
     }
+
+    // v1.1 4.1：記録日はシャッター時点の時刻で決める
+    @Test
+    fun shutterTimeReplacesCameraOpenTimeAndDecidesRecordDate() = runTest {
+        time.setLocal("2026-10-23T03:59:30") // 記録日 10/22 のうちにカメラを開く
+        val ready = ready()
+        assertEquals(LocalDate.parse("2026-10-22"), repository.findById(ready.photoId)!!.recordDate)
+
+        media.write(ready.imageUri)
+        val shutter = java.time.LocalDateTime.parse("2026-10-23T04:00:10").atZone(time.zoneId).toInstant()
+        assertEquals(CompleteResult.SAVED, coordinator.complete(ready.photoId, true, shutter))
+
+        val saved = repository.saved().single()
+        assertEquals(shutter.toEpochMilli(), saved.requestedAtUtc)
+        assertEquals(LocalDate.parse("2026-10-23"), saved.recordDate)
+    }
+
+    @Test
+    fun shutterInsideSameRecordDateOnlyUpdatesTime() = runTest {
+        val ready = ready()
+        media.write(ready.imageUri)
+        val shutter = time.instant.plusSeconds(42)
+        assertEquals(CompleteResult.SAVED, coordinator.complete(ready.photoId, true, shutter))
+        val saved = repository.saved().single()
+        assertEquals(shutter.toEpochMilli(), saved.requestedAtUtc)
+        assertEquals(LocalDate.parse("2026-10-22"), saved.recordDate)
+    }
+
+    @Test
+    fun movingIntoFullRecordDateKeepsCameraOpenTimeToRespectLimit() = runTest {
+        // 時計を戻した等で、移る先の記録日がすでに12枚
+        repeat(MAX_PHOTOS_PER_RECORD_DATE) { repository.put(photo("full-$it", date = "2026-10-23")) }
+        time.setLocal("2026-10-23T03:59:30")
+        val ready = ready()
+        val openedAt = time.instant.toEpochMilli()
+        media.write(ready.imageUri)
+        val shutter = java.time.LocalDateTime.parse("2026-10-23T04:00:10").atZone(time.zoneId).toInstant()
+        assertEquals(CompleteResult.SAVED, coordinator.complete(ready.photoId, true, shutter))
+
+        val saved = repository.findById(ready.photoId)!!
+        assertEquals(LocalDate.parse("2026-10-22"), saved.recordDate)
+        assertEquals(openedAt, saved.requestedAtUtc)
+        assertEquals(MAX_PHOTOS_PER_RECORD_DATE, repository.countActive(LocalDate.parse("2026-10-23")))
+    }
+
+    @Test
+    fun readyCarriesLocationForExif() = runTest {
+        val ready = ready()
+        assertEquals(33.5902, ready.latitude, 0.0)
+        assertEquals(130.4017, ready.longitude, 0.0)
+    }
 }

@@ -10,11 +10,12 @@ import com.hiragi0w0.geopolaroid.domain.MediaCheck
 import com.hiragi0w0.geopolaroid.domain.MediaGateway
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
 
 /**
- * MediaStore Images に写真原本を1件作る。OSカメラはこの URI に直接書き込む。
+ * MediaStore Images に写真原本を1件作り、アプリ内カメラが撮った写真を書き込む。
  * アプリ独自の画像ファイル（縮小版・WebP等）は作らない。
  */
 class MediaStoreGateway(private val resolver: ContentResolver) : MediaGateway {
@@ -32,6 +33,23 @@ class MediaStoreGateway(private val resolver: ContentResolver) : MediaGateway {
             )?.toString()
         } catch (e: Exception) {
             null
+        }
+    }
+
+    override suspend fun writeCapture(uri: String, sourcePath: String): Boolean = withContext(Dispatchers.IO) {
+        val source = File(sourcePath)
+        try {
+            val output = resolver.openOutputStream(uri.toUri(), "wt") ?: return@withContext false
+            output.use { out -> source.inputStream().use { it.copyTo(out) } }
+            true
+        } catch (e: IOException) {
+            false
+        } catch (e: SecurityException) {
+            false
+        } catch (e: IllegalArgumentException) {
+            false
+        } finally {
+            source.delete()
         }
     }
 

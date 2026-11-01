@@ -33,6 +33,9 @@ class RoomPhotoRepository(private val dao: PhotoDao) : PhotoRepository {
 
     override suspend fun markSaved(photoId: String): Boolean = dao.markSaved(photoId) > 0
 
+    override suspend fun markSavedAt(photoId: String, capturedAtUtc: Long, recordDate: LocalDate): Boolean =
+        dao.markSavedAt(photoId, capturedAtUtc, recordDate.toString()) > 0
+
     override suspend fun updatePlaceName(photoId: String, placeName: String) {
         dao.updatePlaceName(photoId, placeName)
     }

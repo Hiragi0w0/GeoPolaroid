@@ -10,8 +10,9 @@ enum class SaveState { PENDING, SAVED }
 /**
  * 記録対象の写真1件。
  *
- * [requestedAtUtc] はシャッター時刻ではなく、OSカメラを起動する直前の基準時刻（epoch ms）。
- * 座標も同じ時点で取得したもの。
+ * [requestedAtUtc] は撮影時刻（epoch ms）。撮影準備中（PENDING）はカメラを開く直前の時刻で、
+ * アプリ内カメラで保存したときにシャッター時刻へ置き換える。OS カメラで撮っていた頃の写真と、
+ * 起動時の復旧で保存した写真はカメラを開く直前の時刻のまま。座標はカメラを開く直前に取得したもの。
  */
 data class Photo(
     val photoId: String,

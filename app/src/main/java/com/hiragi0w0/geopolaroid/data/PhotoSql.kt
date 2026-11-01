@@ -37,6 +37,11 @@ object PhotoSql {
     const val MARK_SAVED =
         "UPDATE photos SET saveState = 'SAVED' WHERE photoId = :photoId AND saveState = 'PENDING'"
 
+    /** PENDING → SAVED と同時に、撮影時刻と記録日をシャッター時点のものに置き換える。 */
+    const val MARK_SAVED_AT =
+        "UPDATE photos SET saveState = 'SAVED', requestedAtUtc = :capturedAtUtc, recordDate = :recordDate " +
+            "WHERE photoId = :photoId AND saveState = 'PENDING'"
+
     const val UPDATE_PLACE_NAME = "UPDATE photos SET placeName = :placeName WHERE photoId = :photoId"
 
     const val DELETE_PENDING = "DELETE FROM photos WHERE photoId = :photoId AND saveState = 'PENDING'"

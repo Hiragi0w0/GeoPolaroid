@@ -1,7 +1,8 @@
 package com.hiragi0w0.geopolaroid.ui
 
-import android.content.ActivityNotFoundException
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
@@ -11,9 +12,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -25,11 +28,13 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.hiragi0w0.geopolaroid.AppContainer
 import com.hiragi0w0.geopolaroid.BuildConfig
 import com.hiragi0w0.geopolaroid.domain.RecordDay
+import com.hiragi0w0.geopolaroid.home.CameraRequest
+import com.hiragi0w0.geopolaroid.home.CaptureStatus
 import com.hiragi0w0.geopolaroid.location.FusedLocationProvider
 import java.time.LocalDate
 
 /**
- * 画面遷移：ホーム → 撮影 → OSカメラ → ホーム／ホーム → 過去の記録 → 完成地図 → 戻る（過去の記録へ）。
+ * 画面遷移：ホーム → 撮影 → アプリ内カメラ → ホーム／ホーム → 過去の記録 → 完成地図 → 戻る（過去の記録へ）。
  * 04:00 前の記録日は一覧、04:00 を越えた記録日だけ地図で開く。
  */
 @Composable
@@ -51,39 +56,63 @@ fun GeoPolaroidApp(container: AppContainer) {
         home.onStop(isChangingConfigurations = activity?.isChangingConfigurations == true)
     }
 
-    // カメラ結果はどの画面にいても受け取れるようルートで登録する。
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        home.onCameraResult(success)
-    }
+    // 開いているアプリ内カメラ。プロセスが作り直されても同じ撮影の続きから開く。
+    var cameraSession by rememberSaveable(stateSaver = CameraRequestSaver) { mutableStateOf<CameraRequest?>(null) }
     val cameraRequest by home.cameraRequest.collectAsStateWithLifecycle()
     LaunchedEffect(cameraRequest) {
         val request = cameraRequest ?: return@LaunchedEffect
-        if (!home.consumeCameraRequest(request)) return@LaunchedEffect
-        try {
-            cameraLauncher.launch(request.imageUri.toUri())
-        } catch (e: ActivityNotFoundException) {
-            home.onCameraLaunchFailed(request.photoId)
-        }
+        if (home.consumeCameraRequest(request)) cameraSession = request
+    }
+    val captureStatus = home.uiState.collectAsStateWithLifecycle().value.captureStatus
+    // 撮影が終わった（復旧処理で片付いた等）のにカメラが開いたままにならないようにする。
+    LaunchedEffect(captureStatus) {
+        if (captureStatus == CaptureStatus.IDLE) cameraSession = null
     }
 
+    val hasCameraPermission = {
+        ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+    }
+    val startCaptureIfPermitted = {
+        when {
+            !FusedLocationProvider.hasLocationPermission(context) -> home.onLocationPermissionDenied()
+            !hasCameraPermission() -> home.onCameraPermissionDenied()
+            else -> home.startCapture()
+        }
+    }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
-    ) { grants ->
-        if (grants.values.any { it }) home.startCapture() else home.onLocationPermissionDenied()
-    }
+    ) { startCaptureIfPermitted() }
     val requestCapture = {
-        if (FusedLocationProvider.hasLocationPermission(context)) {
-            home.startCapture()
-        } else {
-            permissionLauncher.launch(FusedLocationProvider.PERMISSIONS)
+        val missing = buildList {
+            if (!FusedLocationProvider.hasLocationPermission(context)) addAll(FusedLocationProvider.PERMISSIONS)
+            if (!hasCameraPermission()) add(Manifest.permission.CAMERA)
         }
+        if (missing.isEmpty()) home.startCapture() else permissionLauncher.launch(missing.toTypedArray())
     }
 
     var showPastRecords by rememberSaveable { mutableStateOf(false) }
     var openedDate by rememberSaveable { mutableStateOf<String?>(null) }
     val mapDate = openedDate?.let(LocalDate::parse)
 
-    if (mapDate == null && showPastRecords) {
+    val camera = cameraSession
+    if (camera != null) {
+        CameraScreen(
+            request = camera,
+            photoNumber = home.uiState.collectAsStateWithLifecycle().value.activeCount,
+            onClose = {
+                cameraSession = null
+                home.onCameraResult(false)
+            },
+            onPhotoTaken = { path, capturedAtUtc ->
+                cameraSession = null
+                home.onPhotoTaken(path, capturedAtUtc)
+            },
+            onCameraUnavailable = {
+                cameraSession = null
+                home.onCameraLaunchFailed(camera.photoId)
+            },
+        )
+    } else if (mapDate == null && showPastRecords) {
         val homeState by home.uiState.collectAsStateWithLifecycle()
         BackHandler { showPastRecords = false }
         PastRecordsScreen(
@@ -147,3 +176,18 @@ fun GeoPolaroidApp(container: AppContainer) {
         )
     }
 }
+
+/** [CameraRequest] を画面の保存状態に入れるための変換。 */
+private val CameraRequestSaver = listSaver<CameraRequest?, Any>(
+    save = { request ->
+        if (request == null) emptyList() else listOf(request.photoId, request.imageUri, request.latitude, request.longitude)
+    },
+    restore = { values ->
+        CameraRequest(
+            photoId = values[0] as String,
+            imageUri = values[1] as String,
+            latitude = values[2] as Double,
+            longitude = values[3] as Double,
+        )
+    },
+)

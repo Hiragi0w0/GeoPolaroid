@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 
 /**
@@ -182,6 +183,10 @@ class HomeController(
         message.value = HomeMessage.LOCATION_PERMISSION_DENIED
     }
 
+    fun onCameraPermissionDenied() {
+        message.value = HomeMessage.CAMERA_PERMISSION_DENIED
+    }
+
     /** 位置情報の権限が付与済みであることを UI 側で確認してから呼ぶ。 */
     fun startCapture() {
         if (captureStatus.value != CaptureStatus.IDLE || activeStore.activePhotoId != null) return
@@ -205,7 +210,12 @@ class HomeController(
                 is PrepareResult.Ready -> {
                     captureStatus.value = CaptureStatus.CAMERA_OPEN
                     if (isForeground) {
-                        _cameraRequest.value = CameraRequest(result.photoId, result.imageUri)
+                        _cameraRequest.value = CameraRequest(
+                            photoId = result.photoId,
+                            imageUri = result.imageUri,
+                            latitude = result.latitude,
+                            longitude = result.longitude,
+                        )
                     } else {
                         abortCapture(result.photoId)
                     }
@@ -234,20 +244,53 @@ class HomeController(
     }
 
     fun onCameraLaunchFailed(photoId: String) {
-        finishCapture(photoId, cameraReportedSuccess = false, failureMessage = HomeMessage.CAMERA_NOT_FOUND)
+        finishCapture(photoId, cameraReportedSuccess = false, failureMessage = HomeMessage.CAMERA_UNAVAILABLE)
     }
 
-    fun onCameraResult(success: Boolean) {
+    /**
+     * カメラ画面の結果。false は撮らずに閉じた（キャンセル）。true は原本がすでに書き込まれていることを表す
+     * （通常は [onPhotoTaken] を使う）。
+     */
+    fun onCameraResult(success: Boolean, capturedAtUtc: Long? = null) {
         val photoId = activeStore.activePhotoId ?: return
-        finishCapture(photoId, cameraReportedSuccess = success, failureMessage = null)
+        finishCapture(photoId, cameraReportedSuccess = success, failureMessage = null, capturedAtUtc = capturedAtUtc)
     }
 
-    private fun finishCapture(photoId: String, cameraReportedSuccess: Boolean, failureMessage: HomeMessage?) {
+    /**
+     * アプリ内カメラで撮って「OK」した写真を、一時ファイル [capturedFilePath] から原本の項目へ書き込んで保存する。
+     * [capturedAtUtc] はシャッター時刻。
+     */
+    fun onPhotoTaken(capturedFilePath: String, capturedAtUtc: Long) {
+        val photoId = activeStore.activePhotoId ?: return
+        scope.launch {
+            val written = try {
+                val photo = repository.findById(photoId)
+                photo != null && mediaGateway.writeCapture(photo.imageUri, capturedFilePath)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                false
+            }
+            finishCapture(
+                photoId = photoId,
+                cameraReportedSuccess = written,
+                failureMessage = if (written) null else HomeMessage.CAPTURE_FAILED,
+                capturedAtUtc = capturedAtUtc,
+            )
+        }
+    }
+
+    private fun finishCapture(
+        photoId: String,
+        cameraReportedSuccess: Boolean,
+        failureMessage: HomeMessage?,
+        capturedAtUtc: Long? = null,
+    ) {
         scope.launch {
             val result = try {
                 pendingLock.withLock {
                     try {
-                        coordinator.complete(photoId, cameraReportedSuccess)
+                        coordinator.complete(photoId, cameraReportedSuccess, capturedAtUtc?.let(Instant::ofEpochMilli))
                     } finally {
                         if (activeStore.activePhotoId == photoId) activeStore.activePhotoId = null
                     }

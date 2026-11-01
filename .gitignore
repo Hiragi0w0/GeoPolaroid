@@ -16,6 +16,8 @@ captures/
 *.aab
 *.apk
 output-metadata.json
+# release ビルドの出力（R8 の mapping.txt など）
+app/release/
 
 # IntelliJ
 *.iml
