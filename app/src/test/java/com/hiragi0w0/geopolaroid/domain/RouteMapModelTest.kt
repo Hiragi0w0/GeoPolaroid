@@ -136,4 +136,24 @@ class RouteMapModelTest {
         assertEquals(listOf("x"), model.photosAtSameSpot("x").map { it.photoId })
         assertTrue(model.photosAtSameSpot("missing").isEmpty())
     }
+
+    // ピンと一覧には撮影順の番号を出し、同じ地点のピンは1つにまとめて番号を並べる
+    @Test
+    fun spotsMergeSameCoordinatesAndKeepCaptureNumbers() {
+        val model = RouteMapModel.from(
+            listOf(
+                photo("b", at = 2_000, lat = 33.0, lng = 130.0),
+                photo("x", at = 1_500, lat = 33.0, lng = 130.0001),
+                photo("a", at = 1_000, lat = 33.0, lng = 130.0),
+                photo("c", at = 3_000, lat = 33.0, lng = 130.0),
+            ),
+        )
+        assertEquals(2, model.spots.size)
+        assertEquals(listOf("a", "b", "c"), model.spots[0].photos.map { it.photoId })
+        assertEquals("1,3,4", model.spots[0].label)
+        assertEquals(GeoPoint(33.0, 130.0001), model.spots[1].point)
+        assertEquals("2", model.spots[1].label)
+        assertEquals(2, model.numberOf("x"))
+        assertEquals(0, model.numberOf("missing"))
+    }
 }

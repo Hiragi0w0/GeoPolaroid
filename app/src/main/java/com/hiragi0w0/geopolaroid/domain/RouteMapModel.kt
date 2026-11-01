@@ -55,6 +55,12 @@ data class GeoBounds(val southWest: GeoPoint, val northEast: GeoPoint) {
     }
 }
 
+/** 地図上の1地点。同じ座標で撮った写真をまとめ、[numbers] にその撮影順の番号（1始まり）を持つ。 */
+data class PinSpot(val point: GeoPoint, val photos: List<Photo>, val numbers: List<Int>) {
+    /** ピンに書く番号（「3」「2,5」）。 */
+    val label: String get() = numbers.joinToString(",")
+}
+
 /**
  * 完成地図の描画内容。ピンは全写真で同じ見た目、線は撮影順の直線（実際の移動経路ではない）。
  */
@@ -63,6 +69,18 @@ data class RouteMapModel(
     val polyline: List<GeoPoint>,
     val bounds: GeoBounds?,
 ) {
+    /** 同じ座標の写真を1つにまとめたピン（最初の写真の撮影順）。 */
+    val spots: List<PinSpot> by lazy {
+        pins.withIndex()
+            .groupBy { GeoPoint(it.value.latitude, it.value.longitude) }
+            .map { (point, numbered) ->
+                PinSpot(point = point, photos = numbered.map { it.value }, numbers = numbered.map { it.index + 1 })
+            }
+    }
+
+    /** 撮影順の番号（1始まり）。ピンと一覧で同じ番号を見せる。見つからなければ 0。 */
+    fun numberOf(photoId: String): Int = pins.indexOfFirst { it.photoId == photoId } + 1
+
     /**
      * [photoId] の写真と完全に同じ座標にある写真（その写真自身を含む、撮影順）。
      * 重なったピンは分離しないので、カードの中で切り替えて全写真に到達できるようにする。

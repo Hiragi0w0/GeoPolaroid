@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,7 +23,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -87,7 +86,7 @@ fun HomeScreen(
                     top = insets.calculateTopPadding() + 8.dp,
                     bottom = insets.calculateBottomPadding() + CAPTURE_AREA_HEIGHT,
                 ),
-                verticalArrangement = Arrangement.spacedBy(28.dp),
+                verticalArrangement = Arrangement.spacedBy(32.dp),
             ) {
                 item(key = "header") { HomeHeader(state, onOpenPastRecords) }
                 state.message?.let { message ->
@@ -103,11 +102,14 @@ fun HomeScreen(
                 if (!state.isLoading && state.photos.isEmpty()) {
                     item(key = "empty") { EmptyState() }
                 }
-                items(state.photos, key = { it.photoId }) { photo ->
-                    PhotoCard(
+                itemsIndexed(state.photos, key = { _, photo -> photo.photoId }) { index, photo ->
+                    // 撮った枠（正方形）のまま、カードと同じポラロイドで並べる。傾けた角が切れないよう少し内側に置く。
+                    PolaroidCard(
                         photo = photo,
                         isMissing = photo.photoId in state.missingPhotoIds,
                         isResolvingPlace = photo.photoId in state.resolvingPlaceIds,
+                        tilt = polaroidTilt(index),
+                        modifier = Modifier.padding(horizontal = 6.dp),
                         onClick = { viewingPhotoId = photo.photoId },
                     )
                 }
@@ -129,13 +131,15 @@ fun HomeScreen(
         }
     }
 
-    val viewingPhoto = state.photos.firstOrNull { it.photoId == viewingPhotoId }
-    if (viewingPhoto != null) {
+    // 開いた写真から、その日の写真を左右にめくって見られる。
+    val viewingId = viewingPhotoId?.takeIf { id -> state.photos.any { it.photoId == id } }
+    if (viewingId != null) {
         PhotoViewerDialog(
-            photos = listOf(viewingPhoto),
-            initialPhotoId = viewingPhoto.photoId,
+            photos = state.photos,
+            initialPhotoId = viewingId,
             missingPhotoIds = state.missingPhotoIds,
             resolvingPlaceIds = state.resolvingPlaceIds,
+            pageLabelRes = R.string.photo_page_all,
             onDismiss = { viewingPhotoId = null },
             onExclude = {
                 viewingPhotoId = null
@@ -233,26 +237,6 @@ private fun EmptyState() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp),
-        )
-    }
-}
-
-@Composable
-private fun PhotoCard(photo: Photo, isMissing: Boolean, isResolvingPlace: Boolean, onClick: () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        PhotoCaption(
-            photo = photo,
-            isResolvingPlace = isResolvingPlace,
-            modifier = Modifier.padding(start = 2.dp, bottom = 8.dp),
-        )
-        PhotoImage(
-            photo = photo,
-            isMissing = isMissing,
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(4f / 3f)
-                .clip(MaterialTheme.shapes.medium)
-                .clickable(onClick = onClick),
         )
     }
 }

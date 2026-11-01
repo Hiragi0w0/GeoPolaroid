@@ -1,6 +1,7 @@
 package com.hiragi0w0.geopolaroid.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -116,27 +117,6 @@ fun placeLabel(photo: Photo, isResolving: Boolean): String = when {
 fun timeCaption(photo: Photo): String =
     stringResource(R.string.photo_time_caption, DisplayFormat.time(photo))
 
-/** 「09:12（カメラ起動時） · 渋谷区」の1行。場所名が長いときは末尾を省略する。 */
-@Composable
-fun PhotoCaption(photo: Photo, isResolvingPlace: Boolean, modifier: Modifier = Modifier) {
-    Row(modifier = modifier) {
-        Text(
-            text = timeCaption(photo),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.alignByBaseline(),
-        )
-        Text(
-            text = " · " + placeLabel(photo, isResolvingPlace),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.alignByBaseline(),
-        )
-    }
-}
-
 /**
  * 写真を1枚ずつポラロイド風のカードで見せるダイアログ。写真は中央を正方形に切り抜き、
  * 台紙の余白に撮影日時と地域名を書く。[photos] が複数（同じ地点で撮った写真）なら左右に切り替える。
@@ -150,6 +130,7 @@ fun PhotoViewerDialog(
     resolvingPlaceIds: Set<String>,
     onDismiss: () -> Unit,
     onExclude: (Photo) -> Unit,
+    pageLabelRes: Int = R.string.photo_page,
 ) {
     if (photos.isEmpty()) return
     val initialPage = photos.indexOfFirst { it.photoId == initialPhotoId }.coerceAtLeast(0)
@@ -175,14 +156,14 @@ fun PhotoViewerDialog(
                     photo = photo,
                     isMissing = photo.photoId in missingPhotoIds,
                     isResolvingPlace = photo.photoId in resolvingPlaceIds,
-                    // 机に置いた写真のように少し傾け、隣の写真とは向きを変える。
-                    tilt = if (page % 2 == 0) -1.2f else 0.9f,
+                    tilt = polaroidTilt(page),
                 )
             }
             if (photos.size > 1) {
                 PageDots(
                     count = photos.size,
                     current = pagerState.currentPage,
+                    labelRes = pageLabelRes,
                     modifier = Modifier.padding(top = 16.dp),
                 )
             }
@@ -225,18 +206,35 @@ fun PhotoViewerDialog(
     }
 }
 
-/** ポラロイドの1枚。上と左右は細く、下は広い余白をとり、そこに日時と地域名を書く。 */
+/** 机に置いた写真のように少し傾け、隣の写真とは向きを変える（一覧とカードで同じ向き）。 */
+fun polaroidTilt(index: Int): Float = if (index % 2 == 0) -1.2f else 0.9f
+
+/**
+ * ポラロイドの1枚。写真は中央を正方形に切り抜き、上と左右は細く、下は広い余白をとって日時と地域名を書く。
+ * [onClick] を渡すと台紙ごとタップできる。
+ */
 @Composable
-private fun PolaroidCard(photo: Photo, isMissing: Boolean, isResolvingPlace: Boolean, tilt: Float) {
+fun PolaroidCard(
+    photo: Photo,
+    isMissing: Boolean,
+    isResolvingPlace: Boolean,
+    tilt: Float,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+) {
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .graphicsLayer { rotationZ = tilt },
         shape = RoundedCornerShape(3.dp),
         color = PolaroidPaper,
         shadowElevation = 8.dp,
     ) {
-        Column(modifier = Modifier.padding(start = 14.dp, top = 14.dp, end = 14.dp, bottom = 20.dp)) {
+        Column(
+            modifier = Modifier
+                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                .padding(start = 14.dp, top = 14.dp, end = 14.dp, bottom = 20.dp),
+        ) {
             PhotoImage(
                 photo = photo,
                 isMissing = isMissing,
@@ -262,10 +260,10 @@ private fun PolaroidCard(photo: Photo, isMissing: Boolean, isResolvingPlace: Boo
     }
 }
 
-/** 同じ地点の写真の何枚目を見ているかを示す点。 */
+/** 何枚目を見ているかを示す点。 */
 @Composable
-private fun PageDots(count: Int, current: Int, modifier: Modifier = Modifier) {
-    val label = stringResource(R.string.photo_page, current + 1, count)
+private fun PageDots(count: Int, current: Int, labelRes: Int, modifier: Modifier = Modifier) {
+    val label = stringResource(labelRes, current + 1, count)
     Row(
         modifier = modifier.clearAndSetSemantics { contentDescription = label },
         horizontalArrangement = Arrangement.spacedBy(6.dp),

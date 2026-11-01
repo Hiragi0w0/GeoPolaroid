@@ -20,6 +20,7 @@
     <string name="photo_missing">元写真が見つかりません</string>
     <string name="photo_content_description">%1$s に撮影した写真</string>
     <string name="photo_page">同じ場所の写真 %2$d枚中%1$d枚目</string>
+    <string name="photo_page_all">%2$d枚中%1$d枚目</string>
     <string name="photo_exclude">記録から外す</string>
     <string name="photo_exclude_confirm_title">記録から外しますか？</string>
     <string name="photo_exclude_confirm_body">この記録からは消えますが、元の写真は端末の写真ライブラリに残ります。</string>
@@ -36,6 +37,10 @@
     <string name="map_unavailable_title">地図を表示できません</string>
     <string name="map_unavailable_body">Maps APIキー（MAPS_API_KEY）が設定されていません。写真は下の一覧から見られます。</string>
     <string name="map_empty">この日の写真はありません。</string>
+    <string name="map_show_on_map">地図で表示</string>
+    <string name="map_open_photo">%1$d番の写真をカードで見る</string>
+    <string name="map_reset_view">リセット</string>
+    <string name="map_reset_view_description">地図を最初の表示に戻す</string>
     <string name="map_save">地図を画像で保存</string>
     <string name="map_saved">画像を写真ライブラリに保存しました</string>
     <string name="map_save_failed">画像を保存できませんでした。もう一度お試しください。</string>
